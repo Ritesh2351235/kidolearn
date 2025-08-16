@@ -1,7 +1,7 @@
 "use client";
 
-import { memo, useCallback } from "react";
-import { Search, Filter, SlidersHorizontal } from "lucide-react";
+import { memo, useCallback, useMemo } from "react";
+import { Search, Filter, SlidersHorizontal, Star } from "lucide-react";
 import { VideoCategory, SearchFilters } from "@/lib/youtube";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { getCategoriesForAge, getAgeGroupInfo } from "@/lib/growth-categories";
 
 interface VideoFiltersProps {
   searchQuery: string;
@@ -16,6 +17,7 @@ interface VideoFiltersProps {
   onSearchSubmit: () => void;
   filters: SearchFilters;
   onFiltersChange: (filters: SearchFilters) => void;
+  childBirthday?: Date | string;
   isLoading?: boolean;
 }
 
@@ -52,14 +54,70 @@ const sortOptions = [
   { value: 'rating', label: 'Highest Rated' },
 ];
 
+// Helper function to get appropriate icons for categories
+function getCategoryIcon(categoryId: string): string {
+  const iconMap: Record<string, string> = {
+    'nursery-rhymes': '🎵',
+    'animated-stories': '📺',
+    'colors-shapes': '🔷',
+    'family-time': '👨‍👩‍👧‍👦',
+    'story-reading': '📖',
+    'early-math': '🔢',
+    'world-cultures': '🌍',
+    'fine-motor': '✂️',
+    'science-experiments': '🔬',
+    'nature-discovery': '🌿',
+    'creative-arts': '🎨',
+    'movement-dance': '💃',
+    'documentary-exploration': '🎬',
+    'technology-digital': '💻',
+    'environment-sustainability': '🌱',
+    'problem-solving': '🧩',
+    'career-exploration': '👩‍💼',
+    'life-skills': '🎯',
+    'advanced-learning': '🎓',
+    'leadership-thinking': '🧠',
+    'multilingual-learning': '🗣️',
+  };
+  
+  return iconMap[categoryId] || '📚';
+}
+
 function VideoFilters({
   searchQuery,
   onSearchChange,
   onSearchSubmit,
   filters,
   onFiltersChange,
+  childBirthday,
   isLoading = false
 }: VideoFiltersProps) {
+  // Get age-appropriate categories
+  const ageGroupInfo = useMemo(() => {
+    return childBirthday ? getAgeGroupInfo(childBirthday) : null;
+  }, [childBirthday]);
+
+  const dynamicCategories = useMemo(() => {
+    const baseCategories = [{ value: 'all' as VideoCategory, label: 'All Categories', icon: '🎯', description: 'Browse all available content' }];
+    
+    if (ageGroupInfo) {
+      const ageBasedCategories = ageGroupInfo.categories.map(cat => ({
+        value: cat.id as VideoCategory,
+        label: cat.name,
+        icon: getCategoryIcon(cat.id),
+        description: cat.description
+      }));
+      
+      return [...baseCategories, ...ageBasedCategories];
+    }
+    
+    // Fallback to static categories if no age info
+    return [
+      ...baseCategories,
+      ...categories.slice(1) // Skip 'all' since we already added it
+    ];
+  }, [ageGroupInfo]);
+
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       onSearchSubmit();
@@ -109,19 +167,24 @@ function VideoFilters({
           </Button>
         </div>
 
-        {/* Category Pills */}
-        <div className="space-y-4">
-          {searchQuery.trim() && (
+        {/* Search Mode Notice */}
+        {searchQuery.trim() && (
+          <div className="mb-4">
             <Card className="bg-primary/5 border-primary/20">
-              <CardContent className="p-4">
+              <CardContent className="p-3">
                 <p className="text-sm text-foreground">
                   <strong>Search Mode:</strong> Showing results for "{searchQuery}". Category filters are disabled during search.
                 </p>
               </CardContent>
             </Card>
-          )}
+          </div>
+        )}
+
+        {/* Category Pills */}
+        <div className="space-y-4">
+
           <div className="flex flex-wrap gap-2">
-            {categories.map((category) => {
+            {dynamicCategories.map((category) => {
               const isActive = (filters.category === category.value || (!filters.category && category.value === 'all')) && searchQuery.trim() === '';
               const isDisabled = searchQuery.trim() !== '' && category.value !== 'all';
               
@@ -132,10 +195,15 @@ function VideoFilters({
                   disabled={isDisabled}
                   variant={isActive ? "default" : "outline"}
                   size="sm"
-                  className="h-9 px-3"
+                  className="h-9 px-3 relative group"
+                  title={category.description}
                 >
                   <span className="mr-1.5">{category.icon}</span>
                   {category.label}
+                  {/* Tooltip on hover for description */}
+                  <div className="absolute invisible group-hover:visible bg-black text-white text-xs rounded py-1 px-2 bottom-full left-1/2 transform -translate-x-1/2 -translate-y-1 z-10 whitespace-nowrap">
+                    {category.description}
+                  </div>
                 </Button>
               );
             })}

@@ -1,60 +1,129 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
 import { getCurrentParent, removeApprovedVideo } from "@/lib/actions";
-import { db } from "@/lib/db";
-import Image from "next/image";
-import { Clock, User, Trash2, Play, ExternalLink, Plus } from "lucide-react";
+import { Play, User, Plus } from "lucide-react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import ApprovedVideoCard from "@/components/dashboard/approved-video-card";
+import VideoDetailModal from "@/components/dashboard/video-detail-modal";
 
-async function ApproveVideoButton({ videoId }: { videoId: string }) {
-  async function handleRemove() {
-    "use server";
-    await removeApprovedVideo(videoId);
-  }
-
-  return (
-    <form action={handleRemove}>
-      <Button
-        type="submit"
-        variant="ghost"
-        size="sm"
-        className="text-destructive hover:text-destructive hover:bg-destructive/10 p-2 rounded-full"
-        title="Remove approval"
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
-    </form>
-  );
+interface ApprovedVideo {
+  id: string;
+  youtubeId: string;
+  title: string;
+  description: string;
+  thumbnail: string;
+  channelName: string;
+  duration: string;
+  summary: string;
+  watched: boolean;
+  createdAt: Date;
+  child: {
+    id: string;
+    name: string;
+    birthday: Date;
+    interests: string[];
+  };
 }
 
-export default async function ApprovedVideosPage() {
-  const parent = await getCurrentParent();
+export default function ApprovedVideosPage() {
+  const [approvedVideos, setApprovedVideos] = useState<ApprovedVideo[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
   
-  if (!parent) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-center">
-          <div className="text-lg">Loading...</div>
-        </div>
-      </div>
-    );
-  }
+  // Modal state
+  const [selectedVideo, setSelectedVideo] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const approvedVideos = await db.approvedVideo.findMany({
-    where: {
-      child: {
-        parentId: parent.id,
-      },
-    },
-    include: {
-      child: true,
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-  });
+  // Load approved videos
+  useEffect(() => {
+    async function loadApprovedVideos() {
+      try {
+        setIsLoading(true);
+        const parent = await getCurrentParent();
+        
+        if (!parent) {
+          setIsLoading(false);
+          return;
+        }
+
+        // Fetch approved videos via API
+        const response = await fetch('/api/approved-videos');
+        if (response.ok) {
+          const data = await response.json();
+          setApprovedVideos(data.approvedVideos || []);
+        } else {
+          console.error('Failed to fetch approved videos');
+          setApprovedVideos([]);
+        }
+        
+        setIsLoading(false);
+      } catch (error) {
+        console.error("Error loading approved videos:", error);
+        setIsLoading(false);
+      }
+    }
+
+    loadApprovedVideos();
+  }, []);
+
+  const handleRemoveVideo = useCallback(async (videoId: string) => {
+    if (removingIds.has(videoId)) return;
+
+    setRemovingIds(prev => {
+      const newSet = new Set(prev);
+      newSet.add(videoId);
+      return newSet;
+    });
+    
+    try {
+      await removeApprovedVideo(videoId);
+      
+      // Remove video from local state
+      setApprovedVideos(prev => prev.filter(v => v.id !== videoId));
+      
+      // Close modal if this video was being viewed
+      if (selectedVideo?.id === videoId) {
+        handleCloseModal();
+      }
+    } catch (error) {
+      console.error("Error removing video:", error);
+    } finally {
+      setRemovingIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(videoId);
+        return newSet;
+      });
+    }
+  }, [removingIds, selectedVideo?.id]);
+
+  const handleShowDetails = (video: any) => {
+    // Convert approved video to format expected by VideoDetailModal
+    const videoForModal = {
+      id: video.youtubeId,
+      title: video.title,
+      description: video.description || '',
+      thumbnail: video.thumbnail,
+      highResThumbnail: video.thumbnail,
+      channelName: video.channelName,
+      duration: video.duration,
+      publishedAt: video.createdAt.toISOString(),
+      viewCount: '0', // Not available for approved videos
+      category: 'approved',
+      summary: video.summary || '',
+    };
+    
+    setSelectedVideo(videoForModal);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedVideo(null);
+    setIsModalOpen(false);
+  };
 
   // Group videos by child
   const videosByChild = approvedVideos.reduce((acc, video) => {
@@ -64,7 +133,17 @@ export default async function ApprovedVideosPage() {
     }
     acc[childName].push(video);
     return acc;
-  }, {} as Record<string, typeof approvedVideos>);
+  }, {} as Record<string, ApprovedVideo[]>);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="text-center">
+          <div className="text-lg">Loading...</div>
+        </div>
+      </div>
+    );
+  }
 
   if (approvedVideos.length === 0) {
     return (
@@ -136,75 +215,28 @@ export default async function ApprovedVideosPage() {
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto bg-muted/20">
-        <div className="space-y-8 p-8">
+        <div className="space-y-6 p-6">
 
           {Object.entries(videosByChild).map(([childName, videos]) => (
             <Card key={childName} className="bg-background">
-              <CardHeader className="border-b px-6 py-5">
-                <CardTitle className="text-xl font-semibold text-foreground flex items-center font-serif-elegant">
-                  <User className="h-5 w-5 mr-3 text-primary" />
+              <CardHeader className="border-b px-6 py-4">
+                <CardTitle className="text-lg font-semibold text-foreground flex items-center font-serif-elegant">
+                  <User className="h-4 w-4 mr-3 text-primary" />
                   {childName} ({videos.length} video{videos.length !== 1 ? 's' : ''})
                 </CardTitle>
               </CardHeader>
 
-              <CardContent className="p-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
                   {videos.map((video) => (
-                    <Card key={video.id} className="group hover:border-primary transition-colors bg-background">
-                      <div className="relative aspect-video bg-muted/20 overflow-hidden rounded-t-lg">
-                        <Image
-                          src={video.thumbnail}
-                          alt={video.title}
-                          fill
-                          className="object-cover group-hover:scale-105 transition-transform duration-200"
-                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        />
-                        <div className="absolute bottom-2 right-2 bg-black/75 text-white px-2 py-1 rounded text-xs">
-                          <Clock className="h-3 w-3 inline mr-1" />
-                          {video.duration}
-                        </div>
-                        <div className="absolute top-2 right-2">
-                          <ApproveVideoButton videoId={video.id} />
-                        </div>
-                      </div>
-
-                      <CardContent className="p-4">
-                        <h3 className="font-semibold text-foreground mb-2 line-clamp-2 text-sm leading-tight">
-                          {video.title}
-                        </h3>
-                        
-                        <p className="text-xs text-muted-foreground mb-3 flex items-center">
-                          <User className="h-3 w-3 inline mr-1" />
-                          {video.channelName}
-                        </p>
-
-                        <Card className="bg-primary/5 border-primary/20 mb-3">
-                          <CardContent className="p-3">
-                            <p className="text-xs text-foreground line-clamp-3">{video.summary}</p>
-                          </CardContent>
-                        </Card>
-
-                        <div className="flex items-center justify-between text-xs">
-                          <Badge 
-                            variant={video.watched ? "default" : "secondary"}
-                            className={video.watched ? "bg-green-100 text-green-800 hover:bg-green-100" : "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"}
-                          >
-                            {video.watched ? 'Watched' : 'Not watched'}
-                          </Badge>
-                          
-                          <Button variant="ghost" size="sm" asChild className="text-primary hover:text-primary h-auto p-1">
-                            <a
-                              href={`https://www.youtube.com/watch?v=${video.youtubeId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <ExternalLink className="h-3 w-3 mr-1" />
-                              Watch
-                            </a>
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <ApprovedVideoCard
+                      key={video.id}
+                      video={video}
+                      childId={video.child.id}
+                      onRemove={handleRemoveVideo}
+                      onShowDetails={handleShowDetails}
+                      isRemoving={removingIds.has(video.id)}
+                    />
                   ))}
                 </div>
               </CardContent>
@@ -212,6 +244,19 @@ export default async function ApprovedVideosPage() {
           ))}
         </div>
       </div>
+
+      {/* Video Detail Modal */}
+      {selectedVideo && (
+        <VideoDetailModal
+          video={selectedVideo}
+          childId={selectedVideo.childId}
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          onApprove={() => {}} // No approve action needed for already approved videos
+          isApproving={false}
+          isApprovedVideo={true}
+        />
+      )}
     </div>
   );
 }

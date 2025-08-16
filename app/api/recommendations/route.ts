@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { getCurrentParent } from '@/lib/actions';
+import { calculateAge } from '@/lib/utils';
 import { getRecommendationsForChild, searchVideosAdvanced, SearchFilters } from '@/lib/youtube';
-import { generateBulkSummaries } from '@/lib/openai';
 import { recommendationsThrottle } from '@/lib/throttle';
 import { serverDeduplicator } from '@/lib/requestDeduplication';
+import { getSearchTermsForCategory } from '@/lib/growth-categories';
 
 // Helper functions
 function getCategoryKeywords(category: string): string {
@@ -100,7 +101,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Child not found' }, { status: 404 });
     }
 
-    console.log('👶 Child found:', child.name, 'age:', child.age, 'interests:', child.interests);
+    const childAge = calculateAge(child.birthday);
+    console.log('👶 Child found:', child.name, 'age:', childAge, 'interests:', child.interests);
 
     // Validate child has interests
     if (!child.interests || child.interests.length === 0) {
@@ -134,11 +136,24 @@ export async function GET(request: NextRequest) {
         filters: searchFilters
       });
     } else if (category && category !== 'all') {
-      // Category-based search
+      // Category-based search - use growth-based categories
       console.log('📂 Performing category-based search for:', category);
-      const categoryKeywords = getCategoryKeywords(category as any);
-      const ageGroup = getAgeGroup(child.age);
-      const categoryQuery = `${categoryKeywords} for kids ${ageGroup}`;
+      
+      // Try to get search terms from growth-based categories first
+      const ageBasedSearchTerms = getSearchTermsForCategory(category, child.birthday);
+      
+      let categoryQuery: string;
+      if (ageBasedSearchTerms.length > 0) {
+        // Use age-appropriate search terms
+        categoryQuery = ageBasedSearchTerms.join(' OR ');
+        console.log('🎯 Using age-based search terms:', categoryQuery);
+      } else {
+        // Fallback to legacy category keywords
+        const categoryKeywords = getCategoryKeywords(category as any);
+        const ageGroup = getAgeGroup(childAge);
+        categoryQuery = `${categoryKeywords} for kids ${ageGroup}`;
+        console.log('📚 Using fallback category search:', categoryQuery);
+      }
       
       result = await searchVideosAdvanced(categoryQuery, {
         maxResults,
@@ -148,7 +163,7 @@ export async function GET(request: NextRequest) {
     } else {
       // Get recommendations based on child's interests
       console.log('🎬 Fetching YouTube recommendations based on interests...');
-      const videos = await getRecommendationsForChild(child.interests, child.age, {
+      const videos = await getRecommendationsForChild(child.interests, childAge, {
         maxResults,
         pageToken: pageToken || undefined,
         filters
@@ -175,20 +190,10 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Generate AI summaries for all videos
-    console.log('🤖 Generating AI summaries...');
-    const summaries = await generateBulkSummaries(
-      result.videos.map(v => ({ title: v.title, description: v.description })),
-      child.age,
-      child.interests
-    );
-
-    console.log('📝 Summaries generated:', summaries.length);
-
-    // Combine videos with summaries
-    const recommendations = result.videos.map((video, index) => ({
+    // Return videos without summaries for faster loading
+    const recommendations = result.videos.map((video) => ({
       ...video,
-      summary: summaries[index] || 'Educational content suitable for children.',
+      summary: '', // Empty summary - will be generated on demand
     }));
 
     console.log('✅ Recommendations prepared:', recommendations.length);

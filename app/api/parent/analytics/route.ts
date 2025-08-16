@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { prisma } from '@/lib/db';
+import { db } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     // Verify the child belongs to the authenticated user (if childId provided)
     let children = [];
     if (childId) {
-      const child = await prisma.child.findFirst({
+      const child = await db.child.findFirst({
         where: {
           id: childId,
           parent: {
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       children = [child];
     } else {
       // Get all children for the parent
-      children = await prisma.child.findMany({
+      children = await db.child.findMany({
         where: {
           parent: {
             clerkId: userId
@@ -46,14 +46,14 @@ export async function GET(request: NextRequest) {
     const childIds = children.map(c => c.id);
 
     // Get activity overview
-    const totalActivities = await prisma.videoActivity.count({
+    const totalActivities = await db.videoActivity.count({
       where: {
         childId: { in: childIds },
         createdAt: { gte: startDate }
       }
     });
 
-    const totalSessions = await prisma.appSession.count({
+    const totalSessions = await db.appSession.count({
       where: {
         childId: { in: childIds },
         startTime: { gte: startDate }
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Get watch time statistics
-    const watchTimeStats = await prisma.videoActivity.aggregate({
+    const watchTimeStats = await db.videoActivity.aggregate({
       where: {
         childId: { in: childIds },
         createdAt: { gte: startDate }
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Get unique videos watched
-    const uniqueVideosWatched = await prisma.videoActivity.groupBy({
+    const uniqueVideosWatched = await db.videoActivity.groupBy({
       by: ['youtubeId'],
       where: {
         childId: { in: childIds },
@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Get most watched videos
-    const mostWatchedVideos = await prisma.videoActivity.groupBy({
+    const mostWatchedVideos = await db.videoActivity.groupBy({
       by: ['youtubeId', 'videoTitle', 'channelName'],
       where: {
         childId: { in: childIds },
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Get daily activity breakdown
-    const dailyActivity = await prisma.$queryRaw`
+    const dailyActivity = await db.$queryRaw`
       SELECT 
         DATE(created_at) as date,
         COUNT(*) as activities_count,
@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
     `;
 
     // Get top channels
-    const topChannels = await prisma.videoActivity.groupBy({
+    const topChannels = await db.videoActivity.groupBy({
       by: ['channelName'],
       where: {
         childId: { in: childIds },
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Get completion rates by activity type
-    const activityBreakdown = await prisma.videoActivity.groupBy({
+    const activityBreakdown = await db.videoActivity.groupBy({
       by: ['activityType'],
       where: {
         childId: { in: childIds },
@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Get session statistics
-    const sessionStats = await prisma.appSession.aggregate({
+    const sessionStats = await db.appSession.aggregate({
       where: {
         childId: { in: childIds },
         startTime: { gte: startDate },
@@ -201,7 +201,7 @@ export async function GET(request: NextRequest) {
       children: children.map(child => ({
         id: child.id,
         name: child.name,
-        age: child.age
+        birthday: child.birthday.toISOString()
       })),
       dateRange: {
         startDate: startDate.toISOString(),

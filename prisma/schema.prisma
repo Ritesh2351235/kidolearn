@@ -36,6 +36,7 @@ model Child {
   activities       VideoActivity[]
   sessions         AppSession[]
   dailyActivities  ChildActivity[]
+  scheduledVideos  ScheduledVideo[]
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
@@ -56,11 +57,41 @@ model ApprovedVideo {
   watched     Boolean         @default(false)
   watchedAt   DateTime?
   activities  VideoActivity[] // Track all interactions with this video
+  scheduledVideos ScheduledVideo[] // Track scheduled appearances
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
   @@unique([childId, youtubeId])
   @@map("approved_videos")
+}
+
+model ScheduledVideo {
+  id              String        @id @default(cuid())
+  childId         String
+  child           Child         @relation(fields: [childId], references: [id], onDelete: Cascade)
+  approvedVideoId String
+  approvedVideo   ApprovedVideo @relation(fields: [approvedVideoId], references: [id], onDelete: Cascade)
+  
+  // Schedule details
+  scheduledDate   DateTime      // Date when video should be available
+  
+  // Status
+  isActive        Boolean       @default(true)
+  isWatched       Boolean       @default(false)
+  watchedAt       DateTime?
+  
+  // Carryover logic
+  originalDate    DateTime      // Original date it was scheduled for
+  carriedOver     Boolean       @default(false)
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([childId, approvedVideoId, scheduledDate])
+  @@index([scheduledDate, isActive])
+  @@index([childId, scheduledDate])
+  @@index([childId, isWatched])
+  @@map("scheduled_videos")
 }
 
 // Track all video interactions and watch sessions

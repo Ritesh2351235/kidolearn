@@ -167,7 +167,7 @@ export default async function DashboardPage() {
                       <CardContent className="p-6">
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="font-semibold text-foreground text-lg">{child.name}</h3>
-                          <Badge variant="secondary" className="text-sm px-3 py-1">{child.age} years old</Badge>
+                          <Badge variant="secondary" className="text-sm px-3 py-1">{Math.floor((Date.now() - new Date(child.birthday).getTime()) / (365.25 * 24 * 60 * 60 * 1000))} years old</Badge>
                         </div>
                         <div className="mb-6">
                           <p className="text-sm text-muted-foreground mb-3 font-medium">Interests:</p>

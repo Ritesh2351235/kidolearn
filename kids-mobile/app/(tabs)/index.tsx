@@ -30,6 +30,44 @@ export default function HomeScreen() {
   // Activity tracking
   const activityTracker = useActivityTracker();
 
+  const fetchScheduledVideos = async (childId: string): Promise<ApprovedVideo[]> => {
+    try {
+      const currentDate = new Date().toISOString().split('T')[0];
+      
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_API_URL}/api/kids/scheduled-videos?childId=${childId}&date=${currentDate}`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch scheduled videos');
+      }
+      
+      const data = await response.json();
+      
+      // Transform scheduled videos to match ApprovedVideo interface
+      return data.videos.map((video: any) => ({
+        id: `scheduled-${video.id}`,
+        childId: childId,
+        youtubeId: video.id,
+        title: video.title,
+        description: video.description,
+        thumbnail: video.thumbnail,
+        channelName: video.channelName,
+        duration: video.duration,
+        summary: video.summary,
+        watched: false,
+        isScheduled: true,
+        carriedOver: video.carriedOver,
+        scheduledVideoId: video.scheduledVideoId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }));
+    } catch (error) {
+      console.error('Error fetching scheduled videos:', error);
+      return [];
+    }
+  };
+
   const fetchVideos = useCallback(async (forceRefresh = false) => {
     try {
       const currentChild = selectedChild;
@@ -62,9 +100,11 @@ export default function HomeScreen() {
         throw new Error('No authentication token available');
       }
       
-      const videosData = await apiClient.getApprovedVideos(currentChild.id, token);
-      setVideos(videosData);
-      console.log('✅ Fetched', videosData.length, 'videos for', currentChild.name);
+      // Only fetch scheduled videos for today
+      const scheduledVideosData = await fetchScheduledVideos(currentChild.id);
+      
+      setVideos(scheduledVideosData);
+      console.log('✅ Fetched', scheduledVideosData.length, 'scheduled videos for', currentChild.name);
     } catch (error) {
       console.error('Error fetching videos:', error);
       // Mock data for development with real YouTube IDs
@@ -185,6 +225,16 @@ export default function HomeScreen() {
           video.channelName,
           video.id
         );
+
+        // If this is a scheduled video, mark it as watched
+        if (video.isScheduled && video.scheduledVideoId) {
+          console.log('📅 Marking scheduled video as watched:', video.scheduledVideoId);
+          try {
+            await apiClient.markScheduledVideoAsWatched(video.scheduledVideoId, selectedChild.id);
+          } catch (error) {
+            console.error('Error marking scheduled video as watched:', error);
+          }
+        }
       }
 
       const token = await getToken();
@@ -208,6 +258,8 @@ export default function HomeScreen() {
           childId: selectedChild?.id || '',
           channelName: video.channelName,
           duration: video.duration || '',
+          isScheduled: video.isScheduled ? 'true' : 'false',
+          scheduledVideoId: video.scheduledVideoId || '',
         },
       });
     } catch (error) {
@@ -223,6 +275,8 @@ export default function HomeScreen() {
           childId: selectedChild?.id || '',
           channelName: video.channelName,
           duration: video.duration || '',
+          isScheduled: video.isScheduled ? 'true' : 'false',
+          scheduledVideoId: video.scheduledVideoId || '',
         },
       });
     }
@@ -295,11 +349,11 @@ export default function HomeScreen() {
         ) : videos.length === 0 ? (
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIcon}>
-              <Ionicons name="videocam-outline" size={64} color="#A78BFA" />
+              <Ionicons name="calendar-outline" size={64} color="#A78BFA" />
             </View>
-            <Text style={styles.emptyTitle}>No videos yet!</Text>
+            <Text style={styles.emptyTitle}>No videos scheduled for today!</Text>
             <Text style={styles.emptySubtext}>
-              Ask your parent to approve some fun videos for you to watch!
+              Your parent hasn't scheduled any videos for today. Check back tomorrow or ask them to schedule some videos for you!
             </Text>
           </View>
         ) : (
@@ -382,7 +436,7 @@ export default function HomeScreen() {
 
             {/* Video Grid */}
             <View style={styles.videosSection}>
-              <Text style={styles.sectionTitle}>Today's Featured Videos</Text>
+              <Text style={styles.sectionTitle}>Today's Scheduled Videos</Text>
               <View style={styles.videoGrid}>
                 {videos.map((video, index) => {
                   // Cycle through different gradient colors for cards
@@ -414,7 +468,17 @@ export default function HomeScreen() {
                               <Ionicons name="play" size={20} color={Colors.light.primary} />
                             </LinearGradient>
                           </View>
-                          {!video.watched && (
+                          {video.isScheduled && video.carriedOver && (
+                            <View style={styles.carriedOverBadge}>
+                              <Text style={styles.carriedOverText}>↪ Carried Over</Text>
+                            </View>
+                          )}
+                          {video.isScheduled && !video.carriedOver && (
+                            <View style={styles.scheduledBadge}>
+                              <Text style={styles.scheduledText}>📅 Today</Text>
+                            </View>
+                          )}
+                          {!video.watched && !video.isScheduled && (
                             <View style={styles.newBadge}>
                               <Text style={styles.newText}>NEW!</Text>
                             </View>
@@ -759,6 +823,36 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   newText: {
+    color: Colors.light.textOnColor,
+    fontSize: FontSizes.xs,
+    fontFamily: Fonts.ui.bold,
+    letterSpacing: 0.5,
+  },
+  scheduledBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: Colors.light.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  scheduledText: {
+    color: Colors.light.textOnColor,
+    fontSize: FontSizes.xs,
+    fontFamily: Fonts.ui.bold,
+    letterSpacing: 0.5,
+  },
+  carriedOverBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: '#f59e0b', // Orange color for carried over
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  carriedOverText: {
     color: Colors.light.textOnColor,
     fontSize: FontSizes.xs,
     fontFamily: Fonts.ui.bold,

@@ -10,6 +10,7 @@ import {
   VideoIcon,
   BarChart3,
   Settings,
+  Calendar,
 } from "lucide-react";
 
 import {
@@ -45,6 +46,11 @@ const navigation = [
     name: "Approved Videos", 
     href: "/dashboard/approved", 
     icon: ThumbsUp,
+  },
+  { 
+    name: "Schedule", 
+    href: "/dashboard/schedule", 
+    icon: Calendar,
   },
   { 
     name: "Analytics", 

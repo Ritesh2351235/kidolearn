@@ -28,6 +28,10 @@ export interface ApprovedVideo {
   watchedAt?: string;
   createdAt: string;
   updatedAt: string;
+  // Optional fields for scheduled videos
+  isScheduled?: boolean;
+  carriedOver?: boolean;
+  scheduledVideoId?: string;
 }
 
 export interface VideoUrl {
@@ -129,6 +133,16 @@ class ApiClient {
         body: JSON.stringify({ videoId }),
       },
       token
+    );
+  }
+
+  async markScheduledVideoAsWatched(scheduledVideoId: string, childId: string): Promise<void> {
+    await this.makeRequest(
+      `/api/kids/scheduled-videos/watched`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ scheduledVideoId, childId }),
+      }
     );
   }
 

@@ -52,13 +52,13 @@ export default function Pagination({
   if (totalResults === 0) return null;
 
   return (
-    <div className="bg-white border-t border-gray-200 px-4 py-3 sm:px-6">
+    <div className="px-4 py-3">
       <div className="flex-1 flex justify-between items-center">
         <div>
-          <p className="text-sm text-gray-700">
-            Showing <span className="font-medium">{startResult}</span> to{' '}
-            <span className="font-medium">{endResult}</span> of{' '}
-            <span className="font-medium">{totalResults.toLocaleString()}</span> results
+          <p className="text-sm text-muted-foreground">
+            Showing <span className="font-medium text-foreground">{startResult}</span> to{' '}
+            <span className="font-medium text-foreground">{endResult}</span> of{' '}
+            <span className="font-medium text-foreground">{totalResults.toLocaleString()}</span> results
           </p>
         </div>
 
@@ -67,7 +67,7 @@ export default function Pagination({
           <button
             onClick={() => onPageChange(currentPage - 1)}
             disabled={currentPage <= 1 || isLoading}
-            className="relative inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="relative inline-flex items-center px-3 py-2 border border-border text-sm font-medium rounded-md text-muted-foreground bg-background hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <ChevronLeft className="h-4 w-4 mr-1" />
             Previous
@@ -80,7 +80,7 @@ export default function Pagination({
                 return (
                   <span
                     key={`dots-${index}`}
-                    className="relative inline-flex items-center px-3 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500"
+                    className="relative inline-flex items-center px-3 py-2 border border-border bg-background text-sm font-medium text-muted-foreground"
                   >
                     <MoreHorizontal className="h-4 w-4" />
                   </span>
@@ -97,8 +97,8 @@ export default function Pagination({
                   disabled={isLoading}
                   className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md transition-colors ${
                     isActive
-                      ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
-                      : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                      ? 'z-10 bg-primary/10 border-primary text-primary'
+                      : 'bg-background border-border text-muted-foreground hover:bg-muted'
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {pageNum}
@@ -109,7 +109,7 @@ export default function Pagination({
 
           {/* Mobile page info */}
           <div className="sm:hidden">
-            <span className="text-sm text-gray-700">
+            <span className="text-sm text-muted-foreground">
               Page {currentPage} of {totalPages}
             </span>
           </div>
@@ -118,7 +118,7 @@ export default function Pagination({
           <button
             onClick={() => onPageChange(currentPage + 1)}
             disabled={!hasNextPage || currentPage >= totalPages || isLoading}
-            className="relative inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="relative inline-flex items-center px-3 py-2 border border-border text-sm font-medium rounded-md text-muted-foreground bg-background hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Next
             <ChevronRight className="h-4 w-4 ml-1" />
@@ -132,7 +132,7 @@ export default function Pagination({
           <button
             onClick={() => onPageChange(currentPage + 1)}
             disabled={isLoading}
-            className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="bg-primary text-primary-foreground px-6 py-2 rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isLoading ? 'Loading...' : 'Load More Videos'}
           </button>

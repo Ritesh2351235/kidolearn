@@ -1,5 +1,6 @@
 import { getCurrentParent } from "@/lib/actions";
 import { db } from "@/lib/db";
+import { calculateAge } from "@/lib/utils";
 import { BarChart3, TrendingUp, Clock, Users, Play, ThumbsUp, Star, Activity, Eye, Target, Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,7 +34,7 @@ export default async function AnalyticsPage() {
     },
     include: {
       child: {
-        select: { id: true, name: true, age: true }
+        select: { id: true, name: true, birthday: true }
       },
       approvedVideo: {
         select: { title: true, thumbnail: true, channelName: true }
@@ -58,7 +59,7 @@ export default async function AnalyticsPage() {
     },
     include: {
       child: {
-        select: { id: true, name: true, age: true }
+        select: { id: true, name: true, birthday: true }
       }
     },
     orderBy: { startTime: 'desc' }
@@ -142,6 +143,52 @@ export default async function AnalyticsPage() {
   const dailyTrends = Object.values(dailyActivities)
     .sort((a: any, b: any) => a.date.localeCompare(b.date))
     .slice(-7); // Last 7 days
+
+  // Get per-child daily screen time
+  const dailyScreenTimeByChild = parent.children.map(child => {
+    const childActivities = recentActivities.filter(activity => activity.childId === child.id);
+    
+    // Group by date
+    const dailyData = childActivities.reduce((acc, activity) => {
+      const date = activity.createdAt.toISOString().split('T')[0];
+      if (!acc[date]) {
+        acc[date] = {
+          date,
+          watchTime: 0,
+          activities: 0,
+          completions: 0
+        };
+      }
+      acc[date].watchTime += (activity.watchTimeSeconds || 0);
+      acc[date].activities++;
+      if (activity.activityType === 'COMPLETE') {
+        acc[date].completions++;
+      }
+      return acc;
+    }, {} as Record<string, any>);
+
+    // Create array of last 7 days with 0 values for missing days
+    const last7Days = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateString = date.toISOString().split('T')[0];
+      
+      last7Days.push({
+        date: dateString,
+        watchTime: dailyData[dateString]?.watchTime || 0,
+        activities: dailyData[dateString]?.activities || 0,
+        completions: dailyData[dateString]?.completions || 0
+      });
+    }
+
+    return {
+      child,
+      dailyData: last7Days,
+      totalWeeklyTime: last7Days.reduce((sum, day) => sum + day.watchTime, 0),
+      averageDailyTime: Math.round(last7Days.reduce((sum, day) => sum + day.watchTime, 0) / 7)
+    };
+  });
 
   // Helper functions
   const formatDuration = (seconds: number) => {
@@ -300,7 +347,7 @@ export default async function AnalyticsPage() {
                         <CardContent className="p-4">
                           <div className="flex items-center justify-between mb-3">
                             <h3 className="font-semibold text-foreground">{child.name}</h3>
-                            <Badge variant="secondary" className="text-sm">{child.age} years old</Badge>
+                            <Badge variant="secondary" className="text-sm">{calculateAge(child.birthday)} years old</Badge>
                           </div>
                           <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
@@ -335,6 +382,101 @@ export default async function AnalyticsPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Per-Child Daily Screen Time */}
+          <Card className="bg-background">
+            <CardHeader className="border-b px-6 py-5">
+              <CardTitle className="text-xl font-semibold text-foreground flex items-center font-serif-elegant">
+                <Clock className="h-5 w-5 mr-3 text-primary" />
+                Daily Screen Time by Child
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              {dailyScreenTimeByChild.length > 0 ? (
+                <div className="space-y-6">
+                  {dailyScreenTimeByChild.map((childData: any) => (
+                    <Card key={childData.child.id} className="bg-background border">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <h3 className="font-semibold text-foreground">{childData.child.name}</h3>
+                            <Badge variant="secondary" className="text-sm">{calculateAge(childData.child.birthday)} years old</Badge>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-primary">Weekly: {formatDuration(childData.totalWeeklyTime)}</p>
+                            <p className="text-xs text-muted-foreground">Avg: {formatDuration(childData.averageDailyTime)}/day</p>
+                          </div>
+                        </div>
+                        
+                        {/* Daily Screen Time Chart */}
+                        <div className="grid grid-cols-7 gap-2">
+                          {childData.dailyData.map((day: any, index: number) => {
+                            const maxTime = Math.max(...childData.dailyData.map((d: any) => d.watchTime));
+                            const heightPercentage = maxTime > 0 ? (day.watchTime / maxTime) * 100 : 0;
+                            
+                            return (
+                              <div key={day.date} className="text-center">
+                                <div className="h-20 flex items-end justify-center mb-2">
+                                  <div 
+                                    className="bg-primary/20 rounded-t-md w-full relative group cursor-pointer transition-all hover:bg-primary/30"
+                                    style={{ height: `${Math.max(heightPercentage, day.watchTime > 0 ? 8 : 0)}%` }}
+                                    title={`${formatDate(day.date)}: ${formatDuration(day.watchTime)}`}
+                                  >
+                                    {day.watchTime > 0 && (
+                                      <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="bg-black text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                                          {formatDuration(day.watchTime)}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {new Date(day.date).toLocaleDateString('en-US', { day: 'numeric' })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        
+                        {/* Summary Stats */}
+                        <div className="mt-4 pt-4 border-t grid grid-cols-3 gap-4 text-sm">
+                          <div className="text-center">
+                            <p className="text-muted-foreground">Most Active Day</p>
+                            <p className="font-semibold text-primary">
+                              {(() => {
+                                const maxDay = childData.dailyData.reduce((max: any, day: any) => 
+                                  day.watchTime > max.watchTime ? day : max
+                                );
+                                return maxDay.watchTime > 0 ? formatDuration(maxDay.watchTime) : 'None';
+                              })()}
+                            </p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-muted-foreground">Total Videos</p>
+                            <p className="font-semibold text-primary">
+                              {childData.dailyData.reduce((sum: number, day: any) => sum + day.completions, 0)}
+                            </p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-muted-foreground">Active Days</p>
+                            <p className="font-semibold text-primary">
+                              {childData.dailyData.filter((day: any) => day.watchTime > 0).length}/7
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-center py-8">No screen time data available</p>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Recent Activity */}
           <Card className="bg-background">
