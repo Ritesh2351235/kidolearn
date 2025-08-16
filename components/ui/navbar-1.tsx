@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { useState } from "react"
-import { motion, AnimatePresence } from "motion/react"
 import { Menu, X, BookOpen } from "lucide-react"
 import Link from "next/link"
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs"
@@ -74,52 +73,29 @@ const Navbar1 = () => {
       </div>
 
       {/* Mobile Menu Overlay */}
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            className="fixed inset-0 bg-white z-50 pt-24 px-6 md:hidden"
-            initial={{ opacity: 0, x: "100%" }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+      {isOpen && (
+        <div className="fixed inset-0 bg-white z-50 pt-24 px-6 md:hidden">
+          <button
+            className="absolute top-6 right-6 p-2"
+            onClick={toggleMenu}
           >
-            <motion.button
-              className="absolute top-6 right-6 p-2"
-              onClick={toggleMenu}
-              whileTap={{ scale: 0.9 }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
-            >
-              <X className="h-6 w-6 text-gray-900" />
-            </motion.button>
-            <div className="flex flex-col space-y-6">
-              {[
-                { name: "Home", href: "/" },
-                { name: "About Us", href: "#about" },
-                { name: "Programs", href: "#programs" },
-                { name: "Contact", href: "#contact" }
-              ].map((item, i) => (
-                <motion.div
-                  key={item.name}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.1 + 0.1 }}
-                  exit={{ opacity: 0, x: 20 }}
-                >
-                  <Link href={item.href} className="text-base text-gray-900 font-medium" onClick={toggleMenu}>
-                    {item.name}
-                  </Link>
-                </motion.div>
-              ))}
+            <X className="h-6 w-6 text-gray-900" />
+          </button>
+          <div className="flex flex-col space-y-6">
+            {[
+              { name: "Home", href: "/" },
+              { name: "About Us", href: "#about" },
+              { name: "Programs", href: "#programs" },
+              { name: "Contact", href: "#contact" }
+            ].map((item, i) => (
+              <div key={item.name}>
+                <Link href={item.href} className="text-base text-gray-900 font-medium" onClick={toggleMenu}>
+                  {item.name}
+                </Link>
+              </div>
+            ))}
 
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                exit={{ opacity: 0, y: 20 }}
-                className="pt-6 space-y-4"
-              >
+            <div className="pt-6 space-y-4">
                 <SignedOut>
                   <Link
                     href="/sign-in"
@@ -145,11 +121,10 @@ const Navbar1 = () => {
                     Dashboard
                   </Link>
                 </SignedIn>
-              </motion.div>
+              </div>
             </div>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
     </div>
   )
 }

@@ -19,6 +19,24 @@ export interface YouTubeVideo {
   category: string;
 }
 
+export type VideoCategory = 'all' | 'education' | 'entertainment' | 'science' | 'music' | 'sports' | 'arts' | 'stories';
+
+export interface SearchFilters {
+  category?: VideoCategory;
+  duration?: 'any' | 'short' | 'medium' | 'long';
+  uploadDate?: 'any' | 'hour' | 'today' | 'week' | 'month' | 'year';
+  sortBy?: 'relevance' | 'date' | 'viewCount' | 'rating';
+}
+
+export interface SearchOptions {
+  maxResults?: number;
+  category?: VideoCategory;
+  duration?: 'any' | 'short' | 'medium' | 'long';
+  uploadDate?: 'any' | 'hour' | 'today' | 'week' | 'month' | 'year';
+  sortBy?: 'relevance' | 'date' | 'viewCount' | 'rating';
+  pageToken?: string;
+}
+
 export async function searchVideos(query: string, maxResults: number = 10): Promise<YouTubeVideo[]> {
   try {
     console.log('🔍 Searching YouTube for:', query);
@@ -95,14 +113,6 @@ export async function searchVideos(query: string, maxResults: number = 10): Prom
   }
 }
 
-export type VideoCategory = 'education' | 'entertainment' | 'science' | 'music' | 'sports' | 'arts' | 'stories' | 'all';
-
-export interface SearchFilters {
-  category?: VideoCategory;
-  duration?: 'short' | 'medium' | 'long' | 'any';
-  uploadDate?: 'hour' | 'today' | 'week' | 'month' | 'year' | 'any';
-  sortBy?: 'relevance' | 'date' | 'viewCount' | 'rating';
-}
 
 export interface SearchOptions {
   maxResults?: number;

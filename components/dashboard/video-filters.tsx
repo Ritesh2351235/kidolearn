@@ -196,13 +196,13 @@ function VideoFilters({
                   variant={isActive ? "default" : "outline"}
                   size="sm"
                   className="h-9 px-3 relative group"
-                  title={category.description}
+                  title={category.label}
                 >
                   <span className="mr-1.5">{category.icon}</span>
                   {category.label}
                   {/* Tooltip on hover for description */}
                   <div className="absolute invisible group-hover:visible bg-black text-white text-xs rounded py-1 px-2 bottom-full left-1/2 transform -translate-x-1/2 -translate-y-1 z-10 whitespace-nowrap">
-                    {category.description}
+                    {category.label}
                   </div>
                 </Button>
               );

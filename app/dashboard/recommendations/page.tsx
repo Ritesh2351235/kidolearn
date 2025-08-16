@@ -597,7 +597,7 @@ export default function RecommendationsPage() {
                       return (
                         <Button
                           key={category.value}
-                          onClick={() => handleFiltersChange({ ...filters, category: category.value })}
+                          onClick={() => handleFiltersChange({ ...filters, category: category.value as any })}
                           variant={isActive ? "default" : "outline"}
                           size="sm"
                           className={`h-7 px-2 text-xs ${
