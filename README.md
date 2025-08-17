@@ -1,156 +1,497 @@
-# Kids Screen Curator & Planner MVP
+# 🎓 KidoLearn - Smart Video Learning Platform
 
-Transform unstructured YouTube viewing into safe, educational experiences for children.
+> Transform unstructured YouTube viewing into safe, educational experiences for children with AI-powered content curation and smart scheduling.
 
-## Features
+## 🏆 Hackathon Submission
 
-- **Parent Dashboard**: Complete control over children's content
-- **AI-Powered Curation**: Smart video recommendations based on age and interests
-- **Content Approval System**: Review and approve videos before children can watch
-- **Educational Summaries**: AI-generated summaries highlighting learning outcomes
-- **Analytics Dashboard**: Track viewing patterns and educational progress
-- **Child Profile Management**: Customize interests and age-appropriate content
+**Team:** [Your Team Name]  
+**Event:** [Hackathon Name]  
+**Date:** [Submission Date]
 
-## Tech Stack
+## 📋 Table of Contents
 
-- **Frontend**: Next.js 14 with TypeScript and Tailwind CSS
-- **Authentication**: Clerk for secure parent login
-- **Database**: PostgreSQL with Prisma ORM (Neon.tech compatible)
-- **APIs**: YouTube Data API v3 and OpenAI GPT for summaries
-- **Deployment**: Vercel-ready serverless architecture
+- [Overview](#overview)
+- [Features](#features)
+- [Technology Stack](#technology-stack)
+- [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [Installation & Setup](#installation--setup)
+- [Usage](#usage)
+- [API Documentation](#api-documentation)
+- [Database Schema](#database-schema)
+- [Mobile App](#mobile-app)
+- [Deployment](#deployment)
+- [Contributing](#contributing)
+- [License](#license)
 
-## Setup Instructions
+## 🌟 Overview
 
-### 1. Environment Variables
+KidoLearn is a comprehensive platform that revolutionizes how children consume educational content online. By combining AI-powered content curation, intelligent scheduling, and robust parental controls, we create a safe and enriching digital learning environment.
 
-Copy `.env.example` to `.env.local` and fill in your API keys:
+### 🎯 Problem Statement
 
-```bash
-cp .env.example .env.local
+- Children spend hours on YouTube without proper educational value
+- Parents struggle to find age-appropriate, quality content
+- Lack of structured learning paths and progress tracking
+- No effective way to schedule and limit screen time
+
+### 💡 Solution
+
+KidoLearn provides:
+- **AI-Powered Curation**: Intelligent content filtering and recommendation
+- **Smart Scheduling**: Date-based video scheduling with automatic carryover
+- **Parental Dashboard**: Comprehensive analytics and content management
+- **Mobile App**: Kid-friendly interface for safe content consumption
+- **Progress Tracking**: Detailed analytics and learning insights
+
+## ✨ Features
+
+### 👨‍👩‍👧‍👦 For Parents
+- **Content Discovery**: AI-powered video recommendations based on child's age and interests
+- **Bulk Scheduling**: Schedule multiple videos for specific dates with one click
+- **Analytics Dashboard**: Track viewing habits, learning progress, and engagement
+- **Child Profiles**: Manage multiple children with age-appropriate content curation
+- **Safety Controls**: Curated, safe content with no inappropriate material access
+
+### 👶 For Kids
+- **Scheduled Videos**: Access only videos scheduled by parents for today
+- **Automatic Carryover**: Unwatched videos automatically move to the next day
+- **Visual Badges**: Clear indicators for carried-over vs new content
+- **Engaging Interface**: Kid-friendly design with colorful gradients and animations
+- **Progress Tracking**: Visual feedback on completed content and achievements
+
+### 🤖 AI-Powered Features
+- **Content Analysis**: AI summarization of video content for educational value
+- **Age-Appropriate Filtering**: Automatic content classification by age groups
+- **Learning Path Generation**: Intelligent content sequencing for optimal learning
+- **Engagement Analytics**: AI-driven insights into learning patterns and preferences
+
+## 🛠 Technology Stack
+
+### Frontend (Web Dashboard)
+- **Framework**: Next.js 15 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **UI Components**: Radix UI
+- **Authentication**: Clerk
+- **State Management**: React Hooks + Context
+
+### Mobile App
+- **Framework**: React Native with Expo
+- **Language**: TypeScript
+- **Navigation**: Expo Router
+- **Authentication**: Clerk Expo
+- **Styling**: React Native StyleSheet + Gradients
+
+### Backend & APIs
+- **Runtime**: Node.js
+- **API Framework**: Next.js API Routes
+- **Database**: PostgreSQL with Prisma ORM
+- **External APIs**: 
+  - YouTube Data API v3
+  - OpenAI GPT-4 (for content analysis)
+- **Authentication**: Clerk (JWT tokens)
+
+### Database & Storage
+- **Primary Database**: PostgreSQL
+- **ORM**: Prisma
+- **Schema Management**: Prisma Migrations
+- **Data Validation**: Zod
+
+### DevOps & Deployment
+- **Platform**: Vercel (Web) + Expo (Mobile)
+- **CI/CD**: GitHub Actions
+- **Environment Management**: Vercel Environment Variables
+- **Version Control**: Git with GitHub
+
+## 🏗 Architecture
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Web Dashboard │    │   Mobile App    │    │   Admin Panel   │
+│   (Next.js)     │    │   (React Native)│    │   (Future)      │
+└─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
+          │                      │                      │
+          └──────────────────────┼──────────────────────┘
+                                 │
+                    ┌─────────────▼─────────────┐
+                    │      API Gateway          │
+                    │   (Next.js API Routes)    │
+                    └─────────────┬─────────────┘
+                                 │
+              ┌──────────────────┼──────────────────┐
+              │                  │                  │
+    ┌─────────▼─────────┐ ┌─────▼─────┐ ┌─────────▼─────────┐
+    │   Authentication  │ │ Database  │ │   External APIs   │
+    │     (Clerk)       │ │(PostgreSQL│ │ YouTube API, GPT-4│
+    └───────────────────┘ │ + Prisma) │ └───────────────────┘
+                          └───────────┘
 ```
 
-Required API keys:
-- **Clerk**: Get from [clerk.com](https://clerk.com)
-- **Neon Database**: Create at [neon.tech](https://neon.tech)
-- **OpenAI**: Get from [platform.openai.com](https://platform.openai.com)
-- **YouTube**: Get from [Google Cloud Console](https://console.cloud.google.com)
+## 📁 Project Structure
+
+```
+kidscurator/
+├── 📱 Mobile App
+│   └── kids-mobile/
+│       ├── app/                    # Expo Router pages
+│       │   ├── (tabs)/            # Tab navigation
+│       │   ├── auth.tsx           # Authentication
+│       │   ├── child-profiles.tsx # Profile selection
+│       │   └── video-player.tsx   # Video playback
+│       ├── components/            # Reusable components
+│       ├── contexts/              # React contexts
+│       ├── hooks/                 # Custom hooks
+│       ├── lib/                   # Utilities & API client
+│       └── constants/             # App constants
+│
+├── 🌐 Web Dashboard
+│   ├── app/                       # Next.js App Router
+│   │   ├── api/                   # API endpoints
+│   │   │   ├── children/          # Child management
+│   │   │   ├── recommendations/   # AI recommendations
+│   │   │   ├── scheduled-videos/  # Video scheduling
+│   │   │   ├── kids/              # Kids mobile APIs
+│   │   │   └── videos/            # Video management
+│   │   ├── dashboard/             # Protected dashboard
+│   │   │   ├── analytics/         # Analytics pages
+│   │   │   ├── approved/          # Approved videos
+│   │   │   ├── children/          # Child management
+│   │   │   ├── recommendations/   # Content discovery
+│   │   │   └── schedule/          # Video scheduling
+│   │   ├── sign-in/               # Authentication
+│   │   └── sign-up/
+│   ├── components/                # React components
+│   │   ├── dashboard/             # Dashboard-specific
+│   │   └── ui/                    # Reusable UI components
+│   ├── lib/                       # Utilities & helpers
+│   │   ├── actions.ts             # Server actions
+│   │   ├── db.ts                  # Database client
+│   │   ├── youtube.ts             # YouTube API client
+│   │   └── utils.ts               # Helper functions
+│   └── prisma/                    # Database
+│       ├── schema.prisma          # Database schema
+│       └── migrations/            # Schema migrations
+│
+├── 🎨 Shared Assets
+│   ├── public/                    # Static assets
+│   └── styles/                    # Global styles
+│
+└── 📄 Configuration
+    ├── package.json               # Dependencies
+    ├── tsconfig.json             # TypeScript config
+    ├── tailwind.config.ts        # Tailwind CSS config
+    ├── next.config.js            # Next.js config
+    └── .env.local                # Environment variables
+```
+
+## 🚀 Installation & Setup
+
+### Prerequisites
+- Node.js 18+ and npm
+- PostgreSQL database
+- YouTube Data API key
+- OpenAI API key (optional, for AI features)
+- Clerk account for authentication
+
+### 1. Clone the Repository
+```bash
+git clone [your-repo-url]
+cd kidscurator
+```
 
 ### 2. Install Dependencies
-
 ```bash
+# Install web dashboard dependencies
 npm install
+
+# Install mobile app dependencies
+cd kids-mobile
+npm install
+cd ..
 ```
 
-### 3. Database Setup
+### 3. Environment Configuration
 
+#### Web Dashboard (.env.local)
+```env
+# Database
+DATABASE_URL="postgresql://username:password@localhost:5432/kidolearn"
+
+# Authentication (Clerk)
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."
+CLERK_SECRET_KEY="sk_test_..."
+
+# External APIs
+YOUTUBE_API_KEY="your_youtube_api_key"
+OPENAI_API_KEY="your_openai_api_key"
+
+# App URL
+NEXTAUTH_URL="http://localhost:3000"
+```
+
+#### Mobile App (kids-mobile/.env)
+```env
+EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."
+EXPO_PUBLIC_API_URL="http://172.16.22.127:3000"
+```
+
+### 4. Database Setup
 ```bash
 # Generate Prisma client
 npx prisma generate
 
-# Push schema to database
+# Run database migrations
 npx prisma db push
+
+# (Optional) Seed database
+npx prisma db seed
 ```
 
-### 4. Run Development Server
+### 5. Start Development Servers
 
+#### Web Dashboard
 ```bash
 npm run dev
+# Runs on http://localhost:3000
 ```
 
-Visit `http://localhost:3000` to see the application.
-
-## API Keys Setup Guide
-
-### Clerk Authentication
-1. Create account at [clerk.com](https://clerk.com)
-2. Create new application
-3. Copy publishable and secret keys to `.env.local`
-
-### Neon PostgreSQL Database
-1. Create account at [neon.tech](https://neon.tech)
-2. Create new database
-3. Copy connection string to `DATABASE_URL` in `.env.local`
-
-### OpenAI API
-1. Create account at [platform.openai.com](https://platform.openai.com)
-2. Generate API key
-3. Add to `OPENAI_API_KEY` in `.env.local`
-
-### YouTube Data API v3
-1. Go to [Google Cloud Console](https://console.cloud.google.com)
-2. Create new project or select existing
-3. Enable YouTube Data API v3
-4. Create credentials (API key)
-5. Add to `YOUTUBE_API_KEY` in `.env.local`
-
-## Project Structure
-
-```
-├── app/                    # Next.js App Router pages
-│   ├── dashboard/         # Protected dashboard pages
-│   ├── sign-in/          # Authentication pages
-│   └── api/              # API routes
-├── components/            # Reusable components
-│   ├── dashboard/        # Dashboard-specific components
-│   └── ui/               # UI components
-├── lib/                   # Utility functions
-│   ├── db.ts             # Database connection
-│   ├── actions.ts        # Server actions
-│   ├── youtube.ts        # YouTube API integration
-│   └── openai.ts         # OpenAI API integration
-└── prisma/               # Database schema
+#### Mobile App
+```bash
+cd kids-mobile
+npm start
+# Opens Expo development tools
 ```
 
-## Key Features Explained
+## 🎮 Usage
 
-### 1. Child Profile Management
-- Add children with age and interests
-- Customize interests for better recommendations
-- Manage multiple children from single parent account
+### Getting Started
+1. **Sign Up**: Create a parent account at `/sign-up`
+2. **Add Children**: Create profiles for your children with age and interests
+3. **Discover Content**: Browse AI-recommended videos in the recommendations tab
+4. **Approve & Schedule**: Approve videos and schedule them for specific dates
+5. **Monitor Progress**: Track your children's viewing habits in analytics
 
-### 2. Video Recommendations
-- AI-powered YouTube search based on child's interests and age
-- Safe search enabled for child-appropriate content
-- Educational focus with learning outcome summaries
+### Parent Workflow
+1. **Content Discovery** → **Content Approval** → **Scheduling** → **Analytics**
 
-### 3. Approval System
-- Parents review all videos before approval
-- AI-generated educational summaries help with decisions
-- One-click approval adds videos to child's approved list
+### Child Experience
+1. **Profile Selection** → **View Scheduled Videos** → **Watch Content** → **Progress Tracking**
 
-### 4. Analytics Dashboard
-- Track approved vs watched videos
-- Monitor most popular interests
-- View recent activity and engagement rates
+## 📚 API Documentation
 
-## Deployment
+### Core Endpoints
 
-### Vercel Deployment
-1. Push code to GitHub
-2. Connect repository to Vercel
-3. Add environment variables in Vercel dashboard
-4. Deploy automatically
+#### Children Management
+- `GET /api/children` - Get all children for authenticated parent
+- `POST /api/children` - Create new child profile
+- `PUT /api/children/[id]` - Update child profile
+- `DELETE /api/children/[id]` - Delete child profile
 
-### Environment Variables for Production
-Ensure all environment variables from `.env.local` are added to your deployment platform.
+#### Video Recommendations
+- `GET /api/recommendations?childId={id}` - Get AI-powered recommendations
+- `POST /api/videos` - Approve a video for child
 
-## Database Schema
+#### Video Scheduling
+- `GET /api/scheduled-videos?childId={id}` - Get scheduled videos
+- `POST /api/scheduled-videos` - Schedule multiple videos
+- `PUT /api/scheduled-videos/[id]` - Update scheduled video
+- `DELETE /api/scheduled-videos/[id]` - Remove scheduled video
 
-The application uses three main models:
-- **Parent**: Clerk user information
-- **Child**: Child profiles with interests
-- **ApprovedVideo**: Videos approved for children
+#### Mobile APIs
+- `GET /api/kids/scheduled-videos?childId={id}&date={date}` - Get today's scheduled videos
+- `POST /api/kids/scheduled-videos/watched` - Mark video as watched
 
-## Contributing
+#### Analytics
+- `GET /api/parent/analytics?childId={id}` - Get viewing analytics
+- `POST /api/activity` - Track video interactions
 
-This is an MVP. Future enhancements could include:
-- Mobile app for children
-- Payment integration
-- Advanced analytics
-- Parental controls
-- Content categories
-- Viewing time limits
+### Authentication
+All API endpoints require Clerk JWT authentication via `Authorization: Bearer {token}` header.
 
-## License
+## 🗃 Database Schema
 
-Private MVP - All rights reserved.
+### Core Models
+
+#### Parent
+```prisma
+model Parent {
+  id          String    @id @default(cuid())
+  clerkUserId String    @unique
+  email       String    @unique
+  children    Child[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+```
+
+#### Child
+```prisma
+model Child {
+  id               String           @id @default(cuid())
+  parentId         String
+  name             String
+  birthday         DateTime
+  interests        String[]
+  approvedVideos   ApprovedVideo[]
+  scheduledVideos  ScheduledVideo[]
+  activities       Activity[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+```
+
+#### ScheduledVideo (Smart Scheduling)
+```prisma
+model ScheduledVideo {
+  id               String        @id @default(cuid())
+  childId          String
+  approvedVideoId  String
+  scheduledDate    DateTime
+  originalDate     DateTime      @default(now())
+  isWatched        Boolean       @default(false)
+  watchedAt        DateTime?
+  isActive         Boolean       @default(true)
+  carriedOver      Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+```
+
+## 📱 Mobile App
+
+### Key Features
+- **Profile Selection**: Kids choose their profile on app launch
+- **Scheduled Content**: Only shows videos scheduled for today
+- **Automatic Carryover**: Unwatched videos appear next day with visual indicators
+- **Engaging UI**: Colorful gradients, animations, and kid-friendly design
+- **Activity Tracking**: Comprehensive interaction logging
+
+### Architecture
+- **Expo Router**: File-based navigation
+- **Context API**: Global state management
+- **API Integration**: Real-time sync with web dashboard
+- **Offline Support**: Graceful fallbacks when network unavailable
+
+### Development Commands
+```bash
+cd kids-mobile
+
+# Start development
+npm start
+
+# Run on specific platform
+npm run ios
+npm run android
+
+# Get development IP
+npm run get-ip
+
+# Reset project
+npm run reset-project
+```
+
+## 🚀 Deployment
+
+### Web Dashboard (Vercel)
+```bash
+# Build and deploy
+npm run build
+vercel --prod
+```
+
+### Mobile App (Expo)
+```bash
+cd kids-mobile
+
+# Build for production
+expo build:android
+expo build:ios
+
+# Publish update
+expo publish
+```
+
+### Environment Variables
+Ensure all production environment variables are configured in Vercel dashboard.
+
+## 🔒 Security & Privacy
+
+### Data Protection
+- **Authentication**: Clerk-managed user sessions
+- **API Security**: JWT token validation
+- **Input Validation**: Zod schema validation
+- **SQL Injection Prevention**: Prisma ORM parameterized queries
+
+### Content Safety
+- **YouTube API**: Only fetches from safe, educational channels
+- **Content Filtering**: AI-powered inappropriate content detection
+- **Parental Controls**: All content must be parent-approved
+
+### Privacy
+- **Data Minimization**: Only collect necessary user data
+- **Local Storage**: Sensitive data stored securely
+- **Third-party APIs**: Minimal data sharing with external services
+
+## 🏆 Hackathon Achievements
+
+### Technical Innovation
+- ✅ AI-powered content curation
+- ✅ Smart date-based scheduling with carryover
+- ✅ Real-time analytics dashboard
+- ✅ Cross-platform mobile app
+
+### User Experience
+- ✅ Intuitive parent dashboard
+- ✅ Engaging kid-friendly mobile interface
+- ✅ Comprehensive onboarding flow
+- ✅ Responsive design across devices
+
+### Code Quality
+- ✅ TypeScript throughout
+- ✅ Comprehensive error handling
+- ✅ Database schema optimization
+- ✅ API rate limiting and caching
+
+## 🔮 Future Enhancements
+
+- [ ] Real-time notifications
+- [ ] Offline video downloading
+- [ ] Advanced learning analytics
+- [ ] Multi-language support
+- [ ] Gamification features
+- [ ] Social learning features
+- [ ] Voice commands for kids
+- [ ] AR/VR content integration
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+### Development Guidelines
+- Follow TypeScript strict mode
+- Use Prettier for code formatting
+- Write meaningful commit messages
+- Add JSDoc comments for complex functions
+- Ensure mobile responsiveness
+
+## 📞 Support
+
+For technical support or questions:
+- **Email**: [your-email@domain.com]
+- **GitHub Issues**: [Repository Issues]
+- **Discord**: [Your Discord Server]
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+**Made with ❤️ for the next generation of learners**
+
+*KidoLearn - Where Learning Meets Fun!*

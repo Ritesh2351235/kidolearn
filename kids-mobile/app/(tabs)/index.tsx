@@ -325,7 +325,7 @@ export default function HomeScreen() {
           style={styles.welcomeSection}
         >
           <View style={styles.welcomeContent}>
-            <Text style={styles.welcomeTitle}>Let's learn together with Kids Land!</Text>
+            <Text style={styles.welcomeTitle}>Let's learn together with KidoLearn!</Text>
             <Text style={styles.welcomeSubtitle}>Registration successful!</Text>
             <View style={styles.successBadge}>
               <Ionicons name="checkmark-circle" size={20} color={Colors.light.success} />

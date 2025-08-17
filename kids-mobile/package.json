@@ -1,5 +1,5 @@
 {
-  "name": "kids-mobile",
+  "name": "kidolearn-mobile",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
@@ -8,7 +8,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "get-ip": "node ./scripts/get-local-ip.js"
   },
   "dependencies": {
     "@clerk/clerk-expo": "^2.14.14",

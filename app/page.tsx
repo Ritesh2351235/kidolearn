@@ -8,7 +8,7 @@ import { TestimonialsColumn } from "@/components/ui/testimonials-columns-1";
 
 const testimonials = [
   {
-    text: "My daughter absolutely loves kido! She's learning so much while having fun. The content is perfect for her age and keeps her engaged.",
+    text: "My daughter absolutely loves KidoLearn! She's learning so much while having fun. The content is perfect for her age and keeps her engaged.",
     image: "https://images.unsplash.com/photo-1494790108755-2616b612b789?w=400&h=400&fit=crop&crop=face",
     name: "Sarah Johnson",
     role: "Mom of Emma, 7",
@@ -20,13 +20,13 @@ const testimonials = [
     role: "Dad of Alex, 5",
   },
   {
-    text: "The interactive videos have helped my kids develop a real love for learning. They ask to use kido every day after school!",
+    text: "The interactive videos have helped my kids develop a real love for learning. They ask to use KidoLearn every day after school!",
     image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face",
     name: "Lisa Martinez",
     role: "Mom of twins, age 6",
   },
   {
-    text: "As a teacher and parent, I appreciate how kido combines education with entertainment. My children are learning without realizing it.",
+    text: "As a teacher and parent, I appreciate how KidoLearn combines education with entertainment. My children are learning without realizing it.",
     image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop&crop=face",
     name: "David Wilson",
     role: "Teacher & Dad",
@@ -38,7 +38,7 @@ const testimonials = [
     role: "Mom of Sofia, 8",
   },
   {
-    text: "kido has made homeschooling so much easier. The structured content helps me plan lessons while keeping my kids engaged.",
+    text: "KidoLearn has made homeschooling so much easier. The structured content helps me plan lessons while keeping my kids engaged.",
     image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face",
     name: "James Thompson",
     role: "Homeschooling Dad",
@@ -50,7 +50,7 @@ const testimonials = [
     role: "Mom of Lucas, 9",
   },
   {
-    text: "I was skeptical about screen time for learning, but kido has changed my perspective. The content is high-quality and educational.",
+    text: "I was skeptical about screen time for learning, but KidoLearn has changed my perspective. The content is high-quality and educational.",
     image: "https://images.unsplash.com/photo-1463453091185-61582044d556?w=400&h=400&fit=crop&crop=face",
     name: "Robert Kim",
     role: "Dad of Maya, 4",
@@ -315,7 +315,7 @@ export default function Home() {
         <footer className="px-6 py-16 bg-foreground text-background">
           <div className="max-w-4xl mx-auto text-center">
             <div className="mb-8">
-              <span className="text-3xl font-bold">kido</span>
+              <span className="text-3xl font-bold">KidoLearn</span>
             </div>
             <p className="text-background/70 leading-relaxed mb-12 max-w-2xl mx-auto">
               Making learning fun and safe for children everywhere.
@@ -332,7 +332,7 @@ export default function Home() {
 
             <Separator className="mb-8 bg-background/20" />
             <p className="text-background/70 text-sm">
-              © 2024 kido. All rights reserved.
+              © 2024 KidoLearn. All rights reserved.
             </p>
           </div>
         </footer>

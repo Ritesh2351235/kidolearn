@@ -1,11 +1,12 @@
 {
-  "name": "kidscurator",
-  "version": "0.1.0",
+  "name": "kidolearn",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
+    "postinstall": "prisma generate",
     "lint": "next lint",
     "test:youtube": "node scripts/test-youtube-api.js",
     "db:push": "prisma db push",

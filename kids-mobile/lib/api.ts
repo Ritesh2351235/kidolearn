@@ -1,8 +1,27 @@
 import { mobileRequestQueue } from './requestQueue';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+// API Configuration with better error handling
+const getApiBaseUrl = () => {
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  
+  if (envUrl) {
+    console.log('🌐 Using configured API URL:', envUrl);
+    return envUrl;
+  }
+  
+  // Fallback URLs to try
+  const fallbackUrls = [
+    'http://172.16.22.127:3000', // Current detected IP
+    'http://localhost:3000',     // Localhost fallback
+    'http://127.0.0.1:3000',     // IP fallback
+  ];
+  
+  console.log('⚠️ No EXPO_PUBLIC_API_URL configured, using fallback:', fallbackUrls[0]);
+  return fallbackUrls[0];
+};
 
-console.log('🌐 API Base URL:', API_BASE_URL);
+const API_BASE_URL = getApiBaseUrl();
+console.log('🌐 Final API Base URL:', API_BASE_URL);
 
 export interface Child {
   id: string;
@@ -59,16 +78,33 @@ class ApiClient {
       headers.Authorization = `Bearer ${token}`;
     }
 
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
+    try {
+      console.log(`🔄 Making API request to: ${url}`);
+      
+      const response = await fetch(url, {
+        ...options,
+        headers,
+        timeout: 10000, // 10 second timeout
+      });
 
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      if (!response.ok) {
+        console.error(`❌ API request failed: ${response.status} ${response.statusText}`);
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`✅ API request successful for: ${endpoint}`);
+      return data;
+    } catch (error) {
+      console.error(`🚨 Network error for ${url}:`, error);
+      
+      // Provide helpful error messages based on error type
+      if (error instanceof TypeError && error.message.includes('Network request failed')) {
+        throw new Error(`Cannot connect to server at ${API_BASE_URL}. Please check:\n1. Your development server is running on port 3000\n2. Your mobile device and computer are on the same WiFi network\n3. Your firewall allows connections on port 3000`);
+      }
+      
+      throw error;
     }
-
-    return response.json();
   }
 
   async getChildren(token: string): Promise<Child[]> {

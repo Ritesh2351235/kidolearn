@@ -23,8 +23,8 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "Kids Screen Curator & Planner",
-  description: "Transform unstructured YouTube viewing into safe, educational experiences for children",
+  title: "KidoLearn - Smart Video Learning Platform",
+  description: "Transform unstructured YouTube viewing into safe, educational experiences for children with AI-powered content curation and smart scheduling",
 };
 
 export default function RootLayout({
