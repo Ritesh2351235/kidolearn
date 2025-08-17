@@ -74,7 +74,7 @@ export function DashboardSidebar() {
         <SidebarHeader className="border-b px-6 py-4">
           <Link href="/" className="flex items-center">
             <span className="text-2xl font-bold text-foreground font-serif-elegant">
-              kido
+              KidoLearn
             </span>
           </Link>
           <p className="text-sm text-muted-foreground mt-1">
