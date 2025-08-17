@@ -2,11 +2,7 @@
 
 > Transform unstructured YouTube viewing into safe, educational experiences for children with AI-powered content curation and smart scheduling.
 
-## 🏆 Hackathon Submission
 
-**Team:** [Your Team Name]  
-**Event:** [Hackathon Name]  
-**Date:** [Submission Date]
 
 ## 📋 Table of Contents
 
