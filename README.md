@@ -2,7 +2,7 @@
 
 > Transform unstructured YouTube viewing into safe, educational experiences for children with AI-powered content curation and smart scheduling.
 
-## Live here - 
+## Live here - https://kidscurator.vercel.app/
 
 ## 📋 Table of Contents
 
