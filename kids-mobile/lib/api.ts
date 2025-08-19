@@ -3,19 +3,19 @@ import { mobileRequestQueue } from './requestQueue';
 // API Configuration with better error handling
 const getApiBaseUrl = () => {
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
-  
+
   if (envUrl) {
     console.log('🌐 Using configured API URL:', envUrl);
     return envUrl;
   }
-  
+
   // Fallback URLs to try
   const fallbackUrls = [
     'http://172.16.22.127:3000', // Current detected IP
     'http://localhost:3000',     // Localhost fallback
     'http://127.0.0.1:3000',     // IP fallback
   ];
-  
+
   console.log('⚠️ No EXPO_PUBLIC_API_URL configured, using fallback:', fallbackUrls[0]);
   return fallbackUrls[0];
 };
@@ -68,7 +68,7 @@ class ApiClient {
     token?: string
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
-    
+
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       ...options.headers,
@@ -80,7 +80,7 @@ class ApiClient {
 
     try {
       console.log(`🔄 Making API request to: ${url}`);
-      
+
       const response = await fetch(url, {
         ...options,
         headers,
@@ -97,22 +97,22 @@ class ApiClient {
       return data;
     } catch (error) {
       console.error(`🚨 Network error for ${url}:`, error);
-      
+
       // Provide helpful error messages based on error type
       if (error instanceof TypeError && error.message.includes('Network request failed')) {
         throw new Error(`Cannot connect to server at ${API_BASE_URL}. Please check:\n1. Your development server is running on port 3000\n2. Your mobile device and computer are on the same WiFi network\n3. Your firewall allows connections on port 3000`);
       }
-      
+
       throw error;
     }
   }
 
   async getChildren(token: string): Promise<Child[]> {
     const requestId = `children-list`;
-    
+
     return mobileRequestQueue.execute(requestId, async () => {
       const response = await this.makeRequest<{ children: any[] }>('/api/children', { method: 'GET' }, token);
-      
+
       // The API now returns all the required fields
       return response.children;
     });
@@ -134,14 +134,14 @@ class ApiClient {
 
   async getApprovedVideos(childId: string, token: string): Promise<ApprovedVideo[]> {
     const requestId = `videos-${childId}`;
-    
+
     return mobileRequestQueue.execute(requestId, async () => {
       const response = await this.makeRequest<{ videos: any[] }>(
         `/api/videos?childId=${childId}`,
         { method: 'GET' },
         token
       );
-      
+
       // Transform the API response to match our ApprovedVideo interface
       return response.videos.map(video => ({
         id: video.id,
@@ -184,7 +184,7 @@ class ApiClient {
 
   async getVideoUrl(youtubeId: string, token: string): Promise<VideoUrl> {
     const requestId = `video-url-${youtubeId}`;
-    
+
     return mobileRequestQueue.execute(requestId, async () => {
       return this.makeRequest<VideoUrl>(
         `/api/videos/url?youtubeId=${youtubeId}`,

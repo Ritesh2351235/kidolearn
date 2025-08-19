@@ -11,7 +11,9 @@ export default function SSOCallback() {
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        await handleRedirectCallback();
+        // Handle the redirect callback with empty object (let Clerk handle URL parsing)
+        await handleRedirectCallback({});
+
         // Force refresh and redirect to dashboard after successful authentication
         router.refresh();
         router.push("/dashboard");

@@ -16,8 +16,8 @@ export async function getCurrentParent() {
   if (!parent) {
     // Try to get user information from Clerk for better parent creation
     try {
-      const user = await clerkClient.users.getUser(userId);
-      
+      const user = await (await clerkClient()).users.getUser(userId);
+
       parent = await db.parent.create({
         data: {
           clerkId: userId,
@@ -28,7 +28,7 @@ export async function getCurrentParent() {
       });
     } catch (error) {
       console.error('Error creating parent with user data:', error);
-      
+
       // Fallback: create parent with placeholder data
       const timestamp = Date.now();
       parent = await db.parent.create({
