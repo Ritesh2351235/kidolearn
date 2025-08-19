@@ -33,9 +33,22 @@ export default function HomeScreen() {
   const fetchScheduledVideos = async (childId: string): Promise<ApprovedVideo[]> => {
     try {
       const currentDate = new Date().toISOString().split('T')[0];
+      const token = await getToken();
+      
+      if (!token) {
+        console.log('❌ No auth token for scheduled videos');
+        return [];
+      }
       
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/api/kids/scheduled-videos?childId=${childId}&date=${currentDate}`
+        `/api/scheduled-videos?childId=${childId}&date=${currentDate}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
       );
       
       if (!response.ok) {
@@ -45,22 +58,22 @@ export default function HomeScreen() {
       const data = await response.json();
       
       // Transform scheduled videos to match ApprovedVideo interface
-      return data.videos.map((video: any) => ({
+      return data.scheduledVideos.map((video: any) => ({
         id: `scheduled-${video.id}`,
-        childId: childId,
-        youtubeId: video.id,
+        childId: video.childId,
+        youtubeId: video.youtubeId,
         title: video.title,
         description: video.description,
         thumbnail: video.thumbnail,
         channelName: video.channelName,
         duration: video.duration,
         summary: video.summary,
-        watched: false,
+        watched: video.isWatched || false,
         isScheduled: true,
         carriedOver: video.carriedOver,
-        scheduledVideoId: video.scheduledVideoId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        scheduledVideoId: video.id,
+        createdAt: video.createdAt,
+        updatedAt: video.updatedAt,
       }));
     } catch (error) {
       console.error('Error fetching scheduled videos:', error);
@@ -210,7 +223,7 @@ export default function HomeScreen() {
   }, [selectedChild?.id]);
 
   const switchProfile = () => {
-    router.push('/child-profiles');
+    router.push('/main-dashboard');
   };
 
   const playVideo = async (video: ApprovedVideo) => {

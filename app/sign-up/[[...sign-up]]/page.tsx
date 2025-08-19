@@ -87,8 +87,10 @@ export default function SignUpPage() {
 
       if (completeSignUp.status === "complete") {
         // Sign-up completed successfully
-        
         await setActive({ session: completeSignUp.createdSessionId });
+        
+        // Force a router refresh to ensure fresh data load
+        router.refresh();
         router.push("/dashboard");
       }
     } catch (err: any) {

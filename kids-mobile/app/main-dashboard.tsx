@@ -6,8 +6,8 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ScrollView,
-  Image,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,41 +18,58 @@ import { useChild } from '@/contexts/ChildContext';
 import { Colors, Gradients } from '@/constants/Colors';
 import { Fonts, FontSizes } from '@/constants/Fonts';
 import { LinearGradient } from 'expo-linear-gradient';
+import { IconSymbol } from '@/components/ui/IconSymbol';
 
 const AVATAR_COLORS = [
   Colors.light.primary, Colors.light.secondary, Colors.light.blue, 
   Colors.light.yellow, Colors.light.green, Colors.light.orange
 ];
 
-export default function ChildProfilesScreen() {
+
+export default function MainDashboard() {
   const { signOut, getToken } = useAuth();
   const { user } = useUser();
   const { setSelectedChild } = useChild();
+  
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [scheduleModalVisible, setScheduleModalVisible] = useState(false);
+  const [analyticsModalVisible, setAnalyticsModalVisible] = useState(false);
 
   useEffect(() => {
-    fetchChildren();
+    loadData();
   }, []);
 
-  const fetchChildren = async () => {
+  const loadData = async () => {
     try {
-      // Wait for session to be fully established
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      console.log('🚀 [Mobile] Starting new request: children-list');
-      
-      const token = await getToken();
-      if (!token) {
-        throw new Error('No authentication token available');
-      }
-
-      const childrenData = await apiClient.getChildren(token);
-      setChildren(childrenData);
+      await loadChildren();
     } catch (error) {
-      console.error('Error fetching children:', error);
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const loadChildren = async () => {
+    try {
+      console.log('Loading children data from API...');
       
-      // For development, fall back to mock data if API fails
+      // Try to load from API first
+      try {
+        const token = await getToken();
+        if (token) {
+          const childrenData = await apiClient.getChildren(token);
+          setChildren(childrenData);
+          console.log('✅ Loaded children from API:', childrenData.length);
+          return;
+        }
+      } catch (apiError) {
+        console.log('API not available, using mock data:', apiError);
+      }
+      
+      // Fallback to mock data
       const mockChildren: Child[] = [
         {
           id: '1',
@@ -75,10 +92,16 @@ export default function ChildProfilesScreen() {
       ];
       
       setChildren(mockChildren);
-      console.log('Using mock data due to API error:', error);
-    } finally {
-      setLoading(false);
+      console.log('✅ Using mock children data');
+    } catch (error) {
+      console.error('Error loading children:', error);
     }
+  };
+
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadData();
   };
 
   const handleSignOut = async () => {
@@ -93,9 +116,7 @@ export default function ChildProfilesScreen() {
           onPress: async () => {
             try {
               await signOut();
-              // Clear selected child when signing out
               setSelectedChild(null);
-              // Force redirect to auth page
               router.replace('/auth');
             } catch (error) {
               console.error('Error signing out:', error);
@@ -112,17 +133,19 @@ export default function ChildProfilesScreen() {
   };
 
   const addChild = () => {
-    // TODO: Navigate to add child screen
     Alert.alert('Coming Soon', 'Add child functionality will be available soon');
   };
 
-  const getAvatarColor = (index: number) => {
-    return AVATAR_COLORS[index % AVATAR_COLORS.length];
+  const navigateToParentDashboard = () => {
+    console.log('🎯 Navigating to parent dashboard...');
+    router.push('/parent-dashboard');
   };
+
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
+
 
   if (loading) {
     return (
@@ -134,7 +157,7 @@ export default function ChildProfilesScreen() {
           <View style={styles.loadingSpinner}>
             <Ionicons name="people-circle" size={48} color={Colors.light.primary} />
           </View>
-          <Text style={styles.loadingText}>Loading profiles...</Text>
+          <Text style={styles.loadingText}>Loading dashboard...</Text>
         </LinearGradient>
       </SafeAreaView>
     );
@@ -142,88 +165,103 @@ export default function ChildProfilesScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with Gradient */}
-      <LinearGradient
-        colors={['#FFFFFF', '#F8FAFC']}
-        style={styles.header}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <View style={styles.headerContent}>
-          <View style={styles.welcomeSection}>
-            <Text style={styles.welcomeTitle}>Welcome to Kids Land! 🎈</Text>
-            <Text style={styles.title}>Who's ready to learn today?</Text>
-          </View>
-          <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-            <Ionicons name="log-out-outline" size={24} color={Colors.light.primary} />
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
-
-      {/* Hero Illustration Section */}
-      <View style={styles.heroSection}>
-        <View style={styles.illustrationContainer}>
-          <Image 
-            source={require('../assets/app-images/illustrator.png')} 
-            style={styles.heroIllustration}
-            resizeMode="contain"
-          />
-        </View>
-        <Text style={styles.heroText}>Choose your profile to start your adventure!</Text>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.profilesContainer}>
-        <View style={styles.profileGrid}>
-          {children.map((child, index) => {
-            const gradientColors = [Gradients.primaryPurple, Gradients.primaryPink, Gradients.ocean][index % 3];
-            
-            return (
-              <TouchableOpacity
-                key={child.id}
-                style={styles.profileCard}
-                onPress={() => selectChild(child)}
-                activeOpacity={0.8}
-              >
-                <LinearGradient
-                  colors={gradientColors}
-                  style={styles.profileGradient}
-                >
-                  <View style={styles.profileContent}>
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>{getInitials(child.name)}</Text>
-                    </View>
-                    <Text style={styles.profileName}>{child.name}</Text>
-                    <View style={styles.ageContainer}>
-                      <Text style={styles.profileAge}>Age {calculateAge(child.birthday)}</Text>
-                      <Ionicons name="star" size={16} color="rgba(255,255,255,0.8)" />
-                    </View>
-                    <View style={styles.playButton}>
-                      <Ionicons name="play" size={20} color={Colors.light.primary} />
-                    </View>
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-            );
-          })}
-
-          <TouchableOpacity style={styles.addProfileCard} onPress={addChild} activeOpacity={0.8}>
-            <View style={styles.addProfileContent}>
-              <View style={styles.addAvatar}>
-                <Ionicons name="add" size={32} color={Colors.light.primary} />
-              </View>
-              <Text style={styles.addProfileText}>Add New Profile</Text>
-              <Text style={styles.addProfileSubtext}>Create a new learning adventure</Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <View style={styles.welcomeSection}>
+              <Text style={styles.welcomeTitle}>Welcome to Kids Land! 🎈</Text>
+              <Text style={styles.userEmail}>{user?.primaryEmailAddress?.emailAddress}</Text>
             </View>
-          </TouchableOpacity>
+            <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+              <Ionicons name="log-out-outline" size={24} color={Colors.light.primary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+
+        {/* Profile Selection */}
+        <View style={styles.childrenSection}>
+          <Text style={styles.sectionTitle}>Select Profile</Text>
+          <Text style={styles.sectionSubtitle}>Choose a profile to continue</Text>
+          
+          <View style={styles.profileGrid}>
+            {/* Parent Profile Card */}
+            <TouchableOpacity
+              style={styles.profileCard}
+              onPress={navigateToParentDashboard}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={Gradients.sunset}
+                style={styles.profileGradient}
+              >
+                <View style={styles.profileContent}>
+                  <View style={styles.avatar}>
+                    <Ionicons name="person" size={32} color={Colors.light.textOnColor} />
+                  </View>
+                  <Text style={styles.profileName}>Parent Dashboard</Text>
+                  <View style={styles.ageContainer}>
+                    <Text style={styles.profileAge}>Manage & Monitor</Text>
+                    <Ionicons name="settings" size={16} color="rgba(255,255,255,0.8)" />
+                  </View>
+                  <View style={styles.playButton}>
+                    <Ionicons name="chevron-forward" size={20} color={Colors.light.primary} />
+                  </View>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {children.map((child, index) => {
+              const gradientColors = [Gradients.primaryPurple, Gradients.primaryPink, Gradients.ocean][index % 3];
+              
+              return (
+                <TouchableOpacity
+                  key={child.id}
+                  style={styles.profileCard}
+                  onPress={() => selectChild(child)}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={gradientColors}
+                    style={styles.profileGradient}
+                  >
+                    <View style={styles.profileContent}>
+                      <View style={styles.avatar}>
+                        <Text style={styles.avatarText}>{getInitials(child.name)}</Text>
+                      </View>
+                      <Text style={styles.profileName}>{child.name}</Text>
+                      <View style={styles.ageContainer}>
+                        <Text style={styles.profileAge}>Age {calculateAge(child.birthday)}</Text>
+                        <Ionicons name="star" size={16} color="rgba(255,255,255,0.8)" />
+                      </View>
+                      <View style={styles.playButton}>
+                        <Ionicons name="play" size={20} color={Colors.light.primary} />
+                      </View>
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+              );
+            })}
+
+            <TouchableOpacity style={styles.addProfileCard} onPress={addChild} activeOpacity={0.8}>
+              <View style={styles.addProfileContent}>
+                <View style={styles.addAvatar}>
+                  <Ionicons name="add" size={32} color={Colors.light.primary} />
+                </View>
+                <Text style={styles.addProfileText}>Add Child</Text>
+                <Text style={styles.addProfileSubtext}>Create new profile</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
-        <View style={styles.footerContent}>
-          <Ionicons name="shield-checkmark" size={16} color={Colors.light.success} />
-          <Text style={styles.footerText}>
-            Safe & Secure • {user?.primaryEmailAddress?.emailAddress}
-          </Text>
-        </View>
-      </View>
     </SafeAreaView>
   );
 }
@@ -232,6 +270,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.light.background,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 32,
   },
   loadingContainer: {
     flex: 1,
@@ -247,29 +291,31 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.lg,
     fontFamily: Fonts.content.semibold,
   },
+
+  // Header
   header: {
     paddingTop: 10,
+    paddingHorizontal: 24,
+    paddingBottom: 24,
   },
   headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 20,
   },
   welcomeSection: {
     flex: 1,
   },
   welcomeTitle: {
-    fontSize: FontSizes.base,
-    fontFamily: Fonts.content.semibold,
-    color: Colors.light.textSecondary,
-    marginBottom: 4,
-  },
-  title: {
-    fontSize: FontSizes['3xl'],
+    fontSize: FontSizes['2xl'],
     fontFamily: Fonts.ui.bold,
     color: Colors.light.textPrimary,
+    marginBottom: 4,
+  },
+  userEmail: {
+    fontSize: FontSizes.sm,
+    fontFamily: Fonts.content.regular,
+    color: Colors.light.textSecondary,
   },
   signOutButton: {
     width: 44,
@@ -279,32 +325,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  heroSection: {
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 32,
-    backgroundColor: Colors.light.background,
+
+  sectionTitle: {
+    fontSize: FontSizes.xl,
+    fontFamily: Fonts.ui.bold,
+    color: Colors.light.textPrimary,
+    marginBottom: 16,
   },
-  illustrationContainer: {
-    width: 200,
-    height: 150,
-    marginBottom: 20,
-  },
-  heroIllustration: {
-    width: '100%',
-    height: '100%',
-  },
-  heroText: {
-    fontSize: FontSizes.lg,
-    fontFamily: Fonts.content.semibold,
+  sectionSubtitle: {
+    fontSize: FontSizes.base,
+    fontFamily: Fonts.content.regular,
     color: Colors.light.textSecondary,
-    textAlign: 'center',
-    maxWidth: 280,
+    marginBottom: 16,
   },
-  profilesContainer: {
-    flexGrow: 1,
+
+  // Profile Section
+  childrenSection: {
     paddingHorizontal: 24,
-    paddingBottom: 32,
+    paddingTop: 20,
   },
   profileGrid: {
     flexDirection: 'row',
@@ -333,9 +371,9 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   avatar: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -347,12 +385,12 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   avatarText: {
-    fontSize: FontSizes['2xl'],
+    fontSize: FontSizes.lg,
     fontFamily: Fonts.ui.bold,
     color: Colors.light.textOnColor,
   },
   profileName: {
-    fontSize: FontSizes.lg,
+    fontSize: FontSizes.base,
     fontFamily: Fonts.content.bold,
     color: Colors.light.textOnColor,
     marginBottom: 8,
@@ -400,9 +438,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   addAvatar: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: 'rgba(139, 92, 246, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -420,20 +458,5 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.content.regular,
     color: Colors.light.textSecondary,
     textAlign: 'center',
-  },
-  footer: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-    alignItems: 'center',
-  },
-  footerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: FontSizes.xs,
-    fontFamily: Fonts.content.regular,
-    color: Colors.light.textSecondary,
-    marginLeft: 6,
   },
 });

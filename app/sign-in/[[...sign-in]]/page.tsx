@@ -39,6 +39,7 @@ export default function SignInPage() {
 
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
+        router.refresh();
         router.push("/dashboard");
       } else {
         console.error("Sign in failed", result);

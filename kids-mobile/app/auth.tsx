@@ -17,9 +17,9 @@ export default function AuthScreen() {
 
   const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
 
-  const handleChildSignIn = React.useCallback(async () => {
+  const handleSignIn = React.useCallback(async () => {
     try {
-      console.log('Starting Google OAuth flow for child sign-in...');
+      console.log('Starting Google OAuth flow...');
       const { createdSessionId, signIn, signUp, setActive } = await startOAuthFlow();
 
       if (createdSessionId) {
@@ -29,8 +29,8 @@ export default function AuthScreen() {
         // Wait longer for the session to be fully established
         await new Promise(resolve => setTimeout(resolve, 2000));
         
-        // Redirect to child profiles page after successful authentication
-        router.replace('/child-profiles');
+        // Redirect to main dashboard after successful authentication
+        router.replace('/main-dashboard');
       } else {
         // Handle sign-in or sign-up for next steps such as MFA
         console.log('No session created, handling sign-in/sign-up...');
@@ -39,17 +39,17 @@ export default function AuthScreen() {
           // Complete the sign-in process
           await setActive!({ session: signIn.createdSessionId });
           await new Promise(resolve => setTimeout(resolve, 2000));
-          router.replace('/child-profiles');
+          router.replace('/main-dashboard');
         } else if (signUp) {
           console.log('Sign-up available, proceeding...');
           // Complete the sign-up process
           await setActive!({ session: signUp.createdSessionId });
           await new Promise(resolve => setTimeout(resolve, 2000));
-          router.replace('/child-profiles');
+          router.replace('/main-dashboard');
         }
       }
     } catch (err) {
-      console.error('OAuth error during child sign-in:', err);
+      console.error('OAuth error during sign-in:', err);
       // Show user-friendly error message
       alert('Authentication failed. Please try again.');
     }
@@ -102,10 +102,10 @@ export default function AuthScreen() {
               </View>
 
               <View style={styles.faqItem}>
-                <Text style={styles.faqQuestion}>📱 Child vs Parent Access</Text>
+                <Text style={styles.faqQuestion}>📱 How does the unified app work?</Text>
                 <Text style={styles.faqAnswer}>
-                  • <Text style={styles.bold}>Children:</Text> Sign in with Google on this mobile app to watch approved videos{'\n'}
-                  • <Text style={styles.bold}>Parents:</Text> Use the web platform to manage content and settings
+                  • <Text style={styles.bold}>Children:</Text> Select their profile to watch approved videos{'\n'}
+                  • <Text style={styles.bold}>Parents:</Text> Access parent controls to manage content and schedule videos
                 </Text>
               </View>
 
@@ -120,7 +120,7 @@ export default function AuthScreen() {
               <View style={styles.faqItem}>
                 <Text style={styles.faqQuestion}>🚀 Getting Started</Text>
                 <Text style={styles.faqAnswer}>
-                  First-time users: Tap &quot;Parent Sign Up&quot; to create your account on our web platform and set up content for your children.
+                  Simply sign in with Google to access your family dashboard. Create child profiles and start managing their educational content right away.
                 </Text>
               </View>
             </View>
@@ -152,45 +152,39 @@ export default function AuthScreen() {
 
           {/* Sign In Options */}
           <View style={styles.authSection}>
-            <Text style={styles.sectionTitle}>Choose Your Journey</Text>
+            <Text style={styles.sectionTitle}>Get Started</Text>
             
-            {/* Child Sign In */}
-            <TouchableOpacity style={styles.childSignInCard} onPress={handleChildSignIn} activeOpacity={0.9}>
+            {/* Unified Sign In */}
+            <TouchableOpacity style={styles.signInCard} onPress={handleSignIn} activeOpacity={0.9}>
               <LinearGradient
                 colors={Gradients.primaryPurple as any}
                 style={styles.authCardGradient}
               >
                 <View style={styles.authCardContent}>
                   <View style={styles.authIcon}>
-                    <Ionicons name="logo-google" size={28} color="rgba(255,255,255,0.9)" />
+                    <Ionicons name="logo-google" size={32} color="rgba(255,255,255,0.9)" />
                   </View>
-                  <Text style={styles.authCardTitle}>I&apos;m a Kid! 👦👧</Text>
-                  <Text style={styles.authCardSubtitle}>Sign in with Google to watch videos</Text>
+                  <Text style={styles.authCardTitle}>Sign in with Google</Text>
+                  <Text style={styles.authCardSubtitle}>Access your family dashboard with parent controls and children profiles</Text>
                   <View style={styles.playButtonAuth}>
-                    <Ionicons name="play" size={16} color={Colors.light.primary} />
+                    <Ionicons name="arrow-forward" size={20} color={Colors.light.primary} />
                   </View>
                 </View>
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Parent Sign Up */}
-            <TouchableOpacity style={styles.parentSignUpCard} onPress={handleParentSignUp} activeOpacity={0.9}>
-              <LinearGradient
-                colors={Gradients.primaryPink as any}
-                style={styles.authCardGradient}
-              >
-                <View style={styles.authCardContent}>
-                  <View style={styles.authIcon}>
-                    <Ionicons name="shield-checkmark" size={32} color="rgba(255,255,255,0.9)" />
-                  </View>
-                  <Text style={styles.authCardTitle}>I&apos;m a Parent 👨‍👩‍👧‍👦</Text>
-                  <Text style={styles.authCardSubtitle}>Set up and manage content</Text>
-                  <View style={styles.externalIcon}>
-                    <Ionicons name="open" size={16} color={Colors.light.textOnColor} />
-                  </View>
+            {/* Info Card */}
+            <View style={styles.infoCard}>
+              <View style={styles.infoContent}>
+                <Ionicons name="information-circle" size={24} color={Colors.light.primary} />
+                <View style={styles.infoText}>
+                  <Text style={styles.infoTitle}>All-in-One Experience</Text>
+                  <Text style={styles.infoSubtitle}>
+                    Parents can manage content and children can watch videos - all in one app!
+                  </Text>
                 </View>
-              </LinearGradient>
-            </TouchableOpacity>
+              </View>
+            </View>
           </View>
 
           {/* FAQ Section */}
@@ -274,8 +268,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
   },
-  childSignInCard: {
-    marginBottom: 16,
+  signInCard: {
+    marginBottom: 20,
     borderRadius: 20,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -284,14 +278,32 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
-  parentSignUpCard: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+  infoCard: {
+    backgroundColor: Colors.light.backgroundSecondary,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  infoContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  infoText: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  infoTitle: {
+    fontSize: FontSizes.base,
+    fontFamily: Fonts.content.bold,
+    color: Colors.light.textPrimary,
+    marginBottom: 4,
+  },
+  infoSubtitle: {
+    fontSize: FontSizes.sm,
+    fontFamily: Fonts.content.regular,
+    color: Colors.light.textSecondary,
+    lineHeight: 20,
   },
   authCardGradient: {
     borderRadius: 20,

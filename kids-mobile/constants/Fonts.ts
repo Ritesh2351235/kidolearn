@@ -17,6 +17,7 @@ export const Fonts = {
   // Content font (Nunito) - for body text, descriptions, friendly text
   content: {
     regular: 'Nunito_400Regular',
+    medium: 'Nunito_500Medium',
     semibold: 'Nunito_600SemiBold',
     bold: 'Nunito_700Bold',
     extrabold: 'Nunito_800ExtraBold',

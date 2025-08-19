@@ -11,10 +11,18 @@ export default async function DashboardPage() {
   const parent = await getCurrentParent();
   
   if (!parent) {
+    // This should rarely happen now with improved parent creation,
+    // but if it does, we provide a clear message and action
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="text-center">
-          <div className="text-lg">Loading...</div>
+        <div className="text-center space-y-4">
+          <div className="text-lg">Setting up your account...</div>
+          <p className="text-muted-foreground">
+            If this takes more than a few seconds, please refresh the page.
+          </p>
+          <Button asChild>
+            <Link href="/dashboard">Refresh</Link>
+          </Button>
         </div>
       </div>
     );

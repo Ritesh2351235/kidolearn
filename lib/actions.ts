@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 
@@ -14,14 +14,32 @@ export async function getCurrentParent() {
   });
 
   if (!parent) {
-    parent = await db.parent.create({
-      data: {
-        clerkId: userId,
-        email: "",
-        name: "",
-      },
-      include: { children: true },
-    });
+    // Try to get user information from Clerk for better parent creation
+    try {
+      const user = await clerkClient.users.getUser(userId);
+      
+      parent = await db.parent.create({
+        data: {
+          clerkId: userId,
+          email: user.emailAddresses[0]?.emailAddress || `user-${userId}@temp.placeholder`,
+          name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Parent',
+        },
+        include: { children: true },
+      });
+    } catch (error) {
+      console.error('Error creating parent with user data:', error);
+      
+      // Fallback: create parent with placeholder data
+      const timestamp = Date.now();
+      parent = await db.parent.create({
+        data: {
+          clerkId: userId,
+          email: `user-${userId}-${timestamp}@temp.placeholder`,
+          name: 'Parent',
+        },
+        include: { children: true },
+      });
+    }
   }
 
   return parent;

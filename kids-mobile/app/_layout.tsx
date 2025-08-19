@@ -14,6 +14,7 @@ import {
 } from '@expo-google-fonts/poppins';
 import {
   Nunito_400Regular,
+  Nunito_500Medium,
   Nunito_600SemiBold,
   Nunito_700Bold,
   Nunito_800ExtraBold,
@@ -65,6 +66,7 @@ export default function RootLayout() {
     Poppins_700Bold,
     Poppins_800ExtraBold,
     Nunito_400Regular,
+    Nunito_500Medium,
     Nunito_600SemiBold,
     Nunito_700Bold,
     Nunito_800ExtraBold,
@@ -83,7 +85,8 @@ export default function RootLayout() {
             <Stack>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen name="auth" options={{ headerShown: false }} />
-              <Stack.Screen name="child-profiles" options={{ headerShown: false }} />
+              <Stack.Screen name="main-dashboard" options={{ headerShown: false }} />
+              <Stack.Screen name="parent-dashboard" options={{ headerShown: false }} />
               <Stack.Screen name="+not-found" />
             </Stack>
             <StatusBar style="auto" />

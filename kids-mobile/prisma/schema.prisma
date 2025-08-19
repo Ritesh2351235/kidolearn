@@ -1,0 +1,202 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Parent {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  email     String   @unique
+  name      String?
+  children  Child[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("parents")
+}
+
+model Child {
+  id               String          @id @default(cuid())
+  parentId         String
+  parent           Parent          @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  name             String
+  birthday         DateTime
+  interests        String[]        // Array of interest tags
+  videos           ApprovedVideo[]
+  activities       VideoActivity[]
+  sessions         AppSession[]
+  dailyActivities  ChildActivity[]
+  scheduledVideos  ScheduledVideo[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@map("children")
+}
+
+model ApprovedVideo {
+  id          String          @id @default(cuid())
+  childId     String
+  child       Child           @relation(fields: [childId], references: [id], onDelete: Cascade)
+  youtubeId   String          // YouTube video ID
+  title       String
+  description String?
+  thumbnail   String
+  channelName String
+  duration    String?
+  summary     String          // AI-generated summary
+  watched     Boolean         @default(false)
+  watchedAt   DateTime?
+  activities  VideoActivity[] // Track all interactions with this video
+  scheduledVideos ScheduledVideo[] // Track scheduled appearances
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([childId, youtubeId])
+  @@map("approved_videos")
+}
+
+model ScheduledVideo {
+  id              String        @id @default(cuid())
+  childId         String
+  child           Child         @relation(fields: [childId], references: [id], onDelete: Cascade)
+  approvedVideoId String
+  approvedVideo   ApprovedVideo @relation(fields: [approvedVideoId], references: [id], onDelete: Cascade)
+  
+  // Schedule details
+  scheduledDate   DateTime      // Date when video should be available
+  
+  // Status
+  isActive        Boolean       @default(true)
+  isWatched       Boolean       @default(false)
+  watchedAt       DateTime?
+  
+  // Carryover logic
+  originalDate    DateTime      // Original date it was scheduled for
+  carriedOver     Boolean       @default(false)
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([childId, approvedVideoId, scheduledDate])
+  @@index([scheduledDate, isActive])
+  @@index([childId, scheduledDate])
+  @@index([childId, isWatched])
+  @@map("scheduled_videos")
+}
+
+// Track all video interactions and watch sessions
+model VideoActivity {
+  id              String        @id @default(cuid())
+  childId         String
+  child           Child         @relation(fields: [childId], references: [id], onDelete: Cascade)
+  approvedVideoId String
+  approvedVideo   ApprovedVideo @relation(fields: [approvedVideoId], references: [id], onDelete: Cascade)
+  youtubeId       String        // Denormalized for faster queries
+  
+  // Activity tracking
+  activityType    ActivityType  // CLICK, PLAY, PAUSE, SEEK, COMPLETE, etc.
+  watchTimeSeconds Int         @default(0) // Cumulative watch time for this session
+  videoPosition   Int           @default(0) // Position in video when activity occurred (seconds)
+  sessionId       String?       // Link to app session
+  
+  // Video metadata at time of activity (for historical tracking)
+  videoTitle      String
+  channelName     String
+  videoDuration   String?
+  
+  // Engagement metrics
+  completed       Boolean       @default(false) // Did they watch to the end?
+  completionRate  Float?        // Percentage of video watched (0-100)
+  
+  // Context
+  deviceInfo      String?       // Device information
+  appVersion      String?       // App version
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([childId, createdAt])
+  @@index([youtubeId, createdAt])
+  @@index([activityType])
+  @@map("video_activities")
+}
+
+// Track app sessions for understanding usage patterns
+model AppSession {
+  id            String    @id @default(cuid())
+  childId       String
+  child         Child     @relation(fields: [childId], references: [id], onDelete: Cascade)
+  sessionId     String    @unique // Unique identifier for this session
+  
+  // Session tracking
+  startTime     DateTime  @default(now())
+  endTime       DateTime?
+  duration      Int?      // Duration in seconds
+  
+  // Activity summary
+  videosClicked Int       @default(0)
+  videosWatched Int       @default(0)
+  totalWatchTime Int      @default(0) // Total watch time in seconds
+  
+  // Device/App info
+  deviceInfo    String?
+  appVersion    String?
+  platform      String?   // iOS, Android
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([childId, startTime])
+  @@map("app_sessions")
+}
+
+// Daily/Weekly aggregated stats for performance
+model ChildActivity {
+  id                    String   @id @default(cuid())
+  childId               String
+  child                 Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  date                  DateTime // Date for this aggregation
+  
+  // Daily metrics
+  sessionsCount         Int      @default(0)
+  totalSessionTime      Int      @default(0) // Total time in app (seconds)
+  videosClickedCount    Int      @default(0)
+  videosWatchedCount    Int      @default(0)
+  totalWatchTime        Int      @default(0) // Total video watch time (seconds)
+  uniqueVideosWatched   Int      @default(0)
+  averageWatchTime      Float?   // Average watch time per video
+  completionRate        Float?   // Average completion rate
+  
+  // Most watched category/channel for recommendations
+  topChannels           String[] // Top 3 channels watched
+  topCategories         String[] // Top 3 categories/interests
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([childId, date])
+  @@index([childId, date])
+  @@map("child_activities")
+}
+
+enum ActivityType {
+  CLICK          // Video thumbnail clicked
+  PLAY           // Video started playing
+  PAUSE          // Video paused
+  RESUME         // Video resumed
+  SEEK           // User seeked to different position
+  COMPLETE       // Video watched to completion
+  EXIT           // Left video before completion
+  SHARE          // Shared video (future feature)
+  LIKE           // Liked video (future feature)
+}

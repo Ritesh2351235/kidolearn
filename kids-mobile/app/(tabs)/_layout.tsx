@@ -19,8 +19,9 @@ export default function TabLayout() {
     return <Redirect href="/auth" />;
   }
 
+  // Only allow tabs when a child is selected
   if (!selectedChild) {
-    return <Redirect href="/child-profiles" />;
+    return <Redirect href="/main-dashboard" />;
   }
 
   return (
