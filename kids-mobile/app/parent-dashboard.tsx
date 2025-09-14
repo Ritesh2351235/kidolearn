@@ -281,51 +281,65 @@ export default function ParentDashboard() {
         });
 
         if (response.ok) {
-          const analyticsData = await response.json();
-          setStats(analyticsData);
-          console.log('✅ Loaded analytics from API');
+          let analyticsData: any = {};
+          try {
+            analyticsData = await response.json();
+          } catch (parseError) {
+            console.log('⚠️ Could not parse analytics response as JSON:', parseError);
+            throw new Error('Invalid analytics response format');
+          }
+          
+          // Transform new API format to match existing UI expectations
+          const transformedStats = {
+            totalChildren: analyticsData.children?.length || children.length,
+            totalApprovedVideos: analyticsData.overview?.uniqueVideosWatched || 0,
+            totalWatchedVideos: analyticsData.overview?.uniqueVideosWatched || 0,
+            watchRate: Math.round((analyticsData.overview?.averageCompletionRate || 0) * 100),
+            totalWatchTime: Math.round((analyticsData.overview?.totalWatchTimeSeconds || 0) / 60),
+            favoriteCategories: analyticsData.topChannels?.slice(0, 5).map(channel => ({
+              category: channel.name,
+              count: channel.watchCount
+            })) || [],
+            weeklyProgress: analyticsData.dailyActivity?.map((day, index) => ({
+              day: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][new Date(day.date).getDay()],
+              videos: day.activities_count
+            })) || [],
+            childrenStats: analyticsData.children?.map(child => ({
+              childId: child.id,
+              childName: child.name,
+              watchedVideos: 0, // Will be calculated from activities
+              totalTime: 0, // Will be calculated from activities
+              favoriteCategory: 'General'
+            })) || []
+          };
+          
+          setStats(transformedStats);
+          console.log('✅ Loaded analytics from API', transformedStats);
         } else {
           throw new Error('Analytics API failed');
         }
       }
     } catch (analyticsError) {
-      console.log('Analytics API not available, using mock data');
+      console.log('⚠️ Analytics API error:', analyticsError);
+      // Set empty but valid stats instead of mock data
       setStats({
-        totalChildren: children.length || 2,
-        totalApprovedVideos: 24,
-        totalWatchedVideos: 18,
-        watchRate: 75,
-        totalWatchTime: 520,
-        favoriteCategories: [
-          { category: 'Science', count: 8 },
-          { category: 'Math', count: 6 },
-          { category: 'Animals', count: 5 }
-        ],
-        weeklyProgress: [
-          { day: 'Mon', videos: 3 },
-          { day: 'Tue', videos: 5 },
-          { day: 'Wed', videos: 2 },
-          { day: 'Thu', videos: 4 },
-          { day: 'Fri', videos: 6 },
-          { day: 'Sat', videos: 8 },
-          { day: 'Sun', videos: 4 }
-        ],
-        childrenStats: [
-          {
-            childId: '1',
-            childName: 'Emma',
-            watchedVideos: 12,
-            totalTime: 280,
-            favoriteCategory: 'Animals'
-          },
-          {
-            childId: '2',
-            childName: 'Liam',
-            watchedVideos: 6,
-            totalTime: 240,
-            favoriteCategory: 'Science'
-          }
-        ]
+        totalChildren: children.length,
+        totalApprovedVideos: 0,
+        totalWatchedVideos: 0,
+        watchRate: 0,
+        totalWatchTime: 0,
+        favoriteCategories: [],
+        weeklyProgress: Array(7).fill(0).map((_, i) => ({
+          day: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i],
+          videos: 0
+        })),
+        childrenStats: children.map(child => ({
+          childId: child.id,
+          childName: child.name,
+          watchedVideos: 0,
+          totalTime: 0,
+          favoriteCategory: 'General'
+        }))
       });
     }
   };
@@ -347,13 +361,22 @@ export default function ParentDashboard() {
         },
       });
       if (response.ok) {
-        const data = await response.json();
-        setApprovedVideos(data.approvedVideos || []);
-        console.log('✅ Loaded', data.approvedVideos?.length || 0, 'approved videos');
+        try {
+          const data = await response.json();
+          setApprovedVideos(data.approvedVideos || []);
+          console.log('✅ Loaded', data.approvedVideos?.length || 0, 'approved videos');
+        } catch (parseError) {
+          console.log('⚠️ Could not parse approved videos response as JSON');
+          setApprovedVideos([]);
+        }
       } else {
         console.log('❌ Approved videos API error:', response.status);
-        const errorData = await response.json();
-        console.log('❌ Error details:', errorData);
+        try {
+          const errorData = await response.json();
+          console.log('❌ Error details:', errorData);
+        } catch (parseError) {
+          console.log('⚠️ Could not parse approved videos error response');
+        }
         setApprovedVideos([]);
       }
     } catch (error) {
@@ -366,6 +389,11 @@ export default function ParentDashboard() {
     if (!selectedChildId) return;
 
     try {
+      const token = await getToken();
+      if (!token) {
+        console.log('❌ No auth token for recommendations');
+        return;
+      }
       const selectedChild = children.find(c => c.id === selectedChildId);
       if (!selectedChild) return;
 
@@ -435,13 +463,14 @@ export default function ParentDashboard() {
         setLoadingRecommendations(true);
       }
 
-      const apiBaseUrl = process.env.EXPO_PUBLIC_API_URL || 'http://172.16.22.127:8081';
+      const apiBaseUrl = getApiBaseUrl();
       const fullUrl = `${apiBaseUrl}/api/recommendations?${params.toString()}`;
       console.log('🌐 Making API request to:', fullUrl);
 
       const response = await fetch(fullUrl, {
         method: 'GET',
         headers: {
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -567,13 +596,22 @@ export default function ParentDashboard() {
         },
       });
       if (response.ok) {
-        const data = await response.json();
-        setScheduledVideos(data.scheduledVideos || []);
-        console.log('✅ Loaded', data.scheduledVideos?.length || 0, 'scheduled videos');
+        try {
+          const data = await response.json();
+          setScheduledVideos(data.scheduledVideos || []);
+          console.log('✅ Loaded', data.scheduledVideos?.length || 0, 'scheduled videos');
+        } catch (parseError) {
+          console.log('⚠️ Could not parse scheduled videos response as JSON');
+          setScheduledVideos([]);
+        }
       } else {
         console.log('❌ Scheduled videos API error:', response.status);
-        const errorData = await response.json();
-        console.log('❌ Error details:', errorData);
+        try {
+          const errorData = await response.json();
+          console.log('❌ Error details:', errorData);
+        } catch (parseError) {
+          console.log('⚠️ Could not parse scheduled videos error response');
+        }
         setScheduledVideos([]);
       }
     } catch (error) {
@@ -664,7 +702,13 @@ export default function ParentDashboard() {
 
       if (response.status === 429) {
         const retryAfter = response.headers.get('Retry-After');
-        const errorData = await response.json();
+        let errorData: any = {};
+        try {
+          errorData = await response.json();
+        } catch (parseError) {
+          console.log('⚠️ Could not parse rate limit response as JSON');
+          errorData = { message: `Too many approvals. Please wait ${retryAfter || '60'} seconds` };
+        }
         Alert.alert('Rate Limit Exceeded', errorData.message || `Too many approvals. Please wait ${retryAfter} seconds`);
         return;
       }
@@ -685,7 +729,15 @@ export default function ParentDashboard() {
 
         console.log('✅ Video approved and removed from recommendations');
       } else {
-        const errorData = await response.json();
+        let errorData: any = {};
+        try {
+          errorData = await response.json();
+        } catch (parseError) {
+          console.log('⚠️ Could not parse error response as JSON:', parseError);
+          const textResponse = await response.text().catch(() => 'Unknown error');
+          console.error('❌ Approve video error (text):', textResponse);
+          errorData = { error: `Server error: ${response.status} ${response.statusText}` };
+        }
         console.error('❌ Approve video error:', errorData);
         Alert.alert('Error', errorData.error || 'Failed to approve video');
       }
@@ -1296,10 +1348,10 @@ export default function ParentDashboard() {
                     <View style={styles.childIndicator}>
                       <View style={styles.childAvatarSmall}>
                         <Text style={styles.childAvatarText}>
-                          {video.childName.charAt(0).toUpperCase()}
+                          {video.childName && video.childName.charAt ? video.childName.charAt(0).toUpperCase() : 'C'}
                         </Text>
                       </View>
-                      <Text style={styles.childNameText}>For {video.childName}</Text>
+                      <Text style={styles.childNameText}>For {video.childName || 'Child'}</Text>
                     </View>
                   </View>
                 ))}

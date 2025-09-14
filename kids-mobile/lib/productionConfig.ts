@@ -10,7 +10,7 @@ export const DEPLOYMENT_CONFIG = {
   IS_PRODUCTION: __DEV__ === false,
 
   // Production API URL - point to your deployed backend server
-  PRODUCTION_API_URL: process.env.EXPO_PUBLIC_PROD_API_URL || 'https://your-domain.com',
+  PRODUCTION_API_URL: process.env.EXPO_PUBLIC_PROD_API_URL || 'https://kidscurator.vercel.app',
 
   // Development API URL - use Expo dev server URL
   DEVELOPMENT_API_URL: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8081',

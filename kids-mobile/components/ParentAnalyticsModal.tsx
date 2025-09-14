@@ -119,56 +119,25 @@ export default function ParentAnalyticsModal({ visible, onClose }: ParentAnalyti
         const errorData = await response.json().catch(() => ({}));
         console.error('❌ Analytics API error:', response.status, errorData);
 
-        // Use mock data as fallback
+        // Set empty but valid data structure instead of mock data
         setAnalyticsData({
           overview: {
-            totalActivities: 156,
-            totalSessions: 23,
-            totalWatchTimeSeconds: 75000, // ~20 hours
-            averageCompletionRate: 78.5,
-            uniqueVideosWatched: 42,
-            totalSessionTimeSeconds: 82800, // ~23 hours
-            averageSessionTimeSeconds: 3600 // 1 hour average
+            totalActivities: 0,
+            totalSessions: 0,
+            totalWatchTimeSeconds: 0,
+            averageCompletionRate: 0,
+            uniqueVideosWatched: 0,
+            totalSessionTimeSeconds: 0,
+            averageSessionTimeSeconds: 0
           },
-          mostWatchedVideos: [
-            {
-              youtubeId: 'LXb3EKWsInQ',
-              title: 'Wheels On The Bus',
-              channelName: 'Super Simple Songs',
-              watchCount: 8,
-              totalWatchTimeSeconds: 1200
-            },
-            {
-              youtubeId: 'xpVfcZ0ZcFM',
-              title: 'Old MacDonald Had A Farm',
-              channelName: 'Kids TV - Nursery Rhymes',
-              watchCount: 6,
-              totalWatchTimeSeconds: 945
-            },
-            {
-              youtubeId: 'D0Ajq682yrA',
-              title: 'Twinkle Twinkle Little Star',
-              channelName: 'Cocomelon - Nursery Rhymes',
-              watchCount: 5,
-              totalWatchTimeSeconds: 825
-            }
-          ],
-          dailyActivity: [
-            { date: '2024-01-15', activities_count: 15, total_watch_time: 3600, unique_videos: 5 },
-            { date: '2024-01-16', activities_count: 22, total_watch_time: 4800, unique_videos: 7 },
-            { date: '2024-01-17', activities_count: 18, total_watch_time: 3200, unique_videos: 6 },
-            { date: '2024-01-18', activities_count: 25, total_watch_time: 5400, unique_videos: 8 },
-            { date: '2024-01-19', activities_count: 20, total_watch_time: 4200, unique_videos: 6 },
-            { date: '2024-01-20', activities_count: 28, total_watch_time: 6000, unique_videos: 9 },
-            { date: '2024-01-21', activities_count: 28, total_watch_time: 4800, unique_videos: 7 }
-          ],
-          children: [
-            { id: '1', name: 'Emma', birthday: '2017-01-15T00:00:00.000Z' },
-            { id: '2', name: 'Liam', birthday: '2019-06-20T00:00:00.000Z' }
-          ],
+          mostWatchedVideos: [],
+          topChannels: [],
+          dailyActivity: [],
+          activityBreakdown: [],
+          children: [],
           dateRange: {
-            startDate: '2024-01-15',
-            endDate: '2024-01-21',
+            startDate: new Date().toISOString().split('T')[0],
+            endDate: new Date().toISOString().split('T')[0],
             days: 7
           }
         });
