@@ -130,11 +130,12 @@ export default function ParentScheduleModal({ visible, onClose, onSchedule }: Pa
     onClose();
   };
 
-  const handleVideoToggle = (videoId: string) => {
+  const handleVideoToggle = (videoId: string, childId: string) => {
+    const compositeId = `${videoId}-${childId}`;
     setSelectedVideos(prev => 
-      prev.includes(videoId) 
-        ? prev.filter(id => id !== videoId)
-        : [...prev, videoId]
+      prev.includes(compositeId) 
+        ? prev.filter(id => id !== compositeId)
+        : [...prev, compositeId]
     );
   };
 
@@ -165,7 +166,11 @@ export default function ParentScheduleModal({ visible, onClose, onSchedule }: Pa
   const handleSchedule = async () => {
     try {
       setIsLoading(true);
-      await onSchedule(selectedVideos, selectedChildren, selectedDate);
+      
+      // Extract actual video IDs from composite IDs (videoId-childId format)
+      const actualVideoIds = selectedVideos.map(compositeId => compositeId.split('-')[0]);
+      
+      await onSchedule(actualVideoIds, selectedChildren, selectedDate);
       Alert.alert('Success', 'Videos scheduled successfully!');
       handleClose();
     } catch (error) {
@@ -176,7 +181,8 @@ export default function ParentScheduleModal({ visible, onClose, onSchedule }: Pa
   };
 
   const renderVideoItem = ({ item }: { item: ApprovedVideo }) => {
-    const isSelected = selectedVideos.includes(item.id);
+    const compositeId = `${item.id}-${item.child.id}`;
+    const isSelected = selectedVideos.includes(compositeId);
     
     return (
       <TouchableOpacity
@@ -189,7 +195,7 @@ export default function ParentScheduleModal({ visible, onClose, onSchedule }: Pa
           borderWidth: isSelected ? 2 : 1,
           borderColor: isSelected ? colors.primary : colors.border,
         }}
-        onPress={() => handleVideoToggle(item.id)}
+        onPress={() => handleVideoToggle(item.id, item.child.id)}
         activeOpacity={0.7}
       >
         <View style={{
@@ -318,7 +324,7 @@ export default function ParentScheduleModal({ visible, onClose, onSchedule }: Pa
             <FlatList
               data={approvedVideos}
               renderItem={renderVideoItem}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item) => `${item.id}-${item.child.id}`}
               showsVerticalScrollIndicator={false}
               style={{ flex: 1 }}
             />

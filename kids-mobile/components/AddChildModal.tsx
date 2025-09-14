@@ -16,6 +16,7 @@ import { Colors } from '@/constants/Colors';
 import { Fonts, FontSizes } from '@/constants/Fonts';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useAuth } from '@clerk/clerk-expo';
+import { getApiBaseUrl } from '@/lib/productionConfig';
 
 interface AddChildModalProps {
   visible: boolean;
@@ -107,8 +108,7 @@ export default function AddChildModal({ visible, onClose, onChildCreated }: AddC
         return;
       }
 
-      const apiBaseUrl = process.env.EXPO_PUBLIC_API_URL || 'http://172.16.22.127:8081';
-      const response = await fetch(`${apiBaseUrl}/api/children`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/children`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

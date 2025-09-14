@@ -273,7 +273,7 @@ export default function ParentDashboard() {
     try {
       const token = await getToken();
       if (token) {
-        const response = await fetch(`${getApiBaseUrl()}/api/parent/analytics`, {
+        const response = await fetch(`${getApiBaseUrl()}/api/parent/analytics?days=7`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
