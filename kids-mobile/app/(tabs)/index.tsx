@@ -12,11 +12,13 @@ import { useChild } from '@/contexts/ChildContext';
 import { useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { apiClient, ApprovedVideo } from '@/lib/api';
+import { simpleApiClient, ApprovedVideo } from '@/lib/simpleApiClient';
+import { networkManager } from '@/lib/networkManager';
 import { Colors, Gradients } from '@/constants/Colors';
 import { Fonts, FontSizes } from '@/constants/Fonts';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useActivityTracker } from '@/hooks/useActivityTracker';
+import { shadows } from '@/lib/shadowUtils';
 
 
 export default function HomeScreen() {
@@ -24,61 +26,42 @@ export default function HomeScreen() {
   const { getToken } = useAuth();
   const [videos, setVideos] = useState<ApprovedVideo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isConnected, setIsConnected] = useState(true);
   const fetchingRef = useRef(false);
   const lastChildIdRef = useRef<string | null>(null);
-  
+
   // Activity tracking
   const activityTracker = useActivityTracker();
 
-  const fetchScheduledVideos = async (childId: string): Promise<ApprovedVideo[]> => {
-    try {
-      const currentDate = new Date().toISOString().split('T')[0];
-      const token = await getToken();
-      
-      if (!token) {
-        console.log('❌ No auth token for scheduled videos');
-        return [];
+  // Network status monitoring
+  useEffect(() => {
+    const unsubscribe = networkManager.addNetworkListener((connected) => {
+      setIsConnected(connected);
+      if (!connected) {
+        setError('No internet connection');
+      } else {
+        setError(null);
       }
-      
-      const response = await fetch(
-        `/api/scheduled-videos?childId=${childId}&date=${currentDate}`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch scheduled videos');
-      }
-      
-      const data = await response.json();
-      
-      // Transform scheduled videos to match ApprovedVideo interface
-      return data.scheduledVideos.map((video: any) => ({
-        id: `scheduled-${video.id}`,
-        childId: video.childId,
-        youtubeId: video.youtubeId,
-        title: video.title,
-        description: video.description,
-        thumbnail: video.thumbnail,
-        channelName: video.channelName,
-        duration: video.duration,
-        summary: video.summary,
-        watched: video.isWatched || false,
-        isScheduled: true,
-        carriedOver: video.carriedOver,
-        scheduledVideoId: video.id,
-        createdAt: video.createdAt,
-        updatedAt: video.updatedAt,
-      }));
-    } catch (error) {
-      console.error('Error fetching scheduled videos:', error);
-      return [];
+    });
+
+    // Initial network check
+    networkManager.checkConnection().then(setIsConnected);
+
+    return unsubscribe;
+  }, []);
+
+    const fetchScheduledVideos = async (childId: string): Promise<ApprovedVideo[]> => {
+    console.log('📅 Fetching scheduled videos for child:', childId);
+    
+    const token = await getToken();
+    if (!token) {
+      throw new Error('Authentication required');
     }
+
+    // Use simple API client that handles all the complexity
+    return await simpleApiClient.getScheduledVideos(childId, token);
   };
 
   const fetchVideos = useCallback(async (forceRefresh = false) => {
@@ -107,94 +90,25 @@ export default function HomeScreen() {
       setLoading(true);
 
       console.log('🔍 Fetching videos for child:', currentChild.name);
-      
+
       const token = await getToken();
       if (!token) {
         throw new Error('No authentication token available');
       }
-      
+
       // Only fetch scheduled videos for today
       const scheduledVideosData = await fetchScheduledVideos(currentChild.id);
-      
+
       setVideos(scheduledVideosData);
       console.log('✅ Fetched', scheduledVideosData.length, 'scheduled videos for', currentChild.name);
     } catch (error) {
       console.error('Error fetching videos:', error);
-      // Mock data for development with real YouTube IDs
-      const mockVideos: ApprovedVideo[] = [
-        {
-          id: '1',
-          childId: currentChild?.id || '',
-          youtubeId: 'LXb3EKWsInQ', // VEVO - Wheels On The Bus
-          title: 'Wheels On The Bus',
-          description: 'Classic kids nursery rhyme about the wheels on the bus',
-          thumbnail: 'https://img.youtube.com/vi/LXb3EKWsInQ/maxresdefault.jpg',
-          channelName: 'Super Simple Songs',
-          duration: '2:30',
-          summary: 'Fun and educational nursery rhyme for kids',
-          watched: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: '2',
-          childId: currentChild?.id || '',
-          youtubeId: 'xpVfcZ0ZcFM', // Old MacDonald Had A Farm
-          title: 'Old MacDonald Had A Farm',
-          description: 'Classic farm song for children',
-          thumbnail: 'https://img.youtube.com/vi/xpVfcZ0ZcFM/maxresdefault.jpg',
-          channelName: 'Kids TV - Nursery Rhymes',
-          duration: '3:15',
-          summary: 'Learn about farm animals with this classic song',
-          watched: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: '3',
-          childId: currentChild?.id || '',
-          youtubeId: 'D0Ajq682yrA', // Twinkle Twinkle Little Star
-          title: 'Twinkle Twinkle Little Star',
-          description: 'Classic lullaby for children',
-          thumbnail: 'https://img.youtube.com/vi/D0Ajq682yrA/maxresdefault.jpg',
-          channelName: 'Cocomelon - Nursery Rhymes',
-          duration: '2:45',
-          summary: 'Beautiful lullaby to help children sleep',
-          watched: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: '4',
-          childId: currentChild?.id || '',
-          youtubeId: 'yCjJyiqpAuU', // Baby Shark Dance
-          title: 'Baby Shark Dance',
-          description: 'Popular kids song about baby sharks',
-          thumbnail: 'https://img.youtube.com/vi/yCjJyiqpAuU/maxresdefault.jpg',
-          channelName: 'Pinkfong Baby Shark - Kids\' Songs & Stories',
-          duration: '2:17',
-          summary: 'Fun dance song for toddlers and kids',
-          watched: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: '5',
-          childId: currentChild?.id || '',
-          youtubeId: 'KqhfLTsEeZg', // Head Shoulders Knees and Toes
-          title: 'Head Shoulders Knees and Toes',
-          description: 'Learn body parts with this fun song',
-          thumbnail: 'https://img.youtube.com/vi/KqhfLTsEeZg/maxresdefault.jpg',
-          channelName: 'Super Simple Songs',
-          duration: '1:58',
-          summary: 'Educational song to learn body parts',
-          watched: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }
-      ];
-      setVideos(mockVideos);
-      console.log('Using mock data due to API error:', error);
+      setVideos([]);
+      Alert.alert(
+        'Unable to Load Videos',
+        'Please check your internet connection and try again.',
+        [{ text: 'OK' }]
+      );
     } finally {
       setLoading(false);
       fetchingRef.current = false;
@@ -205,14 +119,14 @@ export default function HomeScreen() {
   useEffect(() => {
     console.log('🔄 Child selection changed:', selectedChild?.name || 'none');
     fetchVideos();
-    
+
     // Start activity tracking session when child is selected
     if (selectedChild?.id && !activityTracker.isTrackingSession) {
       console.log('🎯 Starting activity tracking session for:', selectedChild.name);
       activityTracker.startSession(selectedChild.id);
     }
   }, [selectedChild?.id]); // Only depend on child ID to prevent function recreation loops
-  
+
   // End session when component unmounts or child changes
   useEffect(() => {
     return () => {
@@ -231,59 +145,80 @@ export default function HomeScreen() {
       // Track video click activity
       if (selectedChild?.id) {
         console.log('📹 Tracking video click for:', video.title);
-        await activityTracker.trackVideoClick(
-          selectedChild.id,
-          video.youtubeId,
-          video.title,
-          video.channelName,
-          video.id
-        );
+        try {
+          await activityTracker.trackVideoClick(
+            selectedChild.id,
+            video.youtubeId,
+            video.title,
+            video.channelName,
+            video.id
+          );
+        } catch (trackingError) {
+          console.warn('Failed to track video click, continuing with playback:', trackingError);
+        }
 
-        // If this is a scheduled video, mark it as watched
+        // If this is a scheduled video, mark it as watched (requires internet)
         if (video.isScheduled && video.scheduledVideoId) {
           console.log('📅 Marking scheduled video as watched:', video.scheduledVideoId);
           try {
-            await apiClient.markScheduledVideoAsWatched(video.scheduledVideoId, selectedChild.id);
+            await simpleApiClient.markScheduledVideoAsWatched(video.scheduledVideoId, selectedChild.id);
           } catch (error) {
-            console.error('Error marking scheduled video as watched:', error);
+            console.warn('Failed to mark scheduled video as watched:', error);
+            // Don't block video playback if tracking fails
           }
         }
       }
 
-      const token = await getToken();
-      if (!token) {
-        console.error('No authentication token available');
-        return;
+      // Always try to play the video, even if API calls fail
+      let videoParams = {
+        youtubeId: video.youtubeId,
+        title: video.title,
+        approvedVideoId: video.id,
+        childId: selectedChild?.id || '',
+        channelName: video.channelName,
+        duration: video.duration || '',
+        isScheduled: video.isScheduled ? 'true' : 'false',
+        scheduledVideoId: video.scheduledVideoId || '',
+      };
+
+      // Get video URL from API (with YouTube fallback)
+      try {
+        const token = await getToken();
+        if (token) {
+          const videoUrlData = await simpleApiClient.getVideoUrl(video.youtubeId, token);
+          // Add video URL parameters (router accepts any string parameters)
+          (videoParams as any).videoUrl = videoUrlData.embedUrl;
+          (videoParams as any).iframeUrl = videoUrlData.iframeUrl;
+          (videoParams as any).watchUrl = videoUrlData.watchUrl;
+          console.log('✅ Video URL obtained from API');
+        } else {
+          // No token - use direct YouTube URLs
+          (videoParams as any).videoUrl = `https://www.youtube.com/embed/${video.youtubeId}?autoplay=1&playsinline=1&rel=0&showinfo=0&controls=1&modestbranding=1`;
+          (videoParams as any).iframeUrl = `https://www.youtube-nocookie.com/embed/${video.youtubeId}?autoplay=1&playsinline=1&rel=0&showinfo=0&controls=1&modestbranding=1&iv_load_policy=3&fs=1`;
+          (videoParams as any).watchUrl = `https://www.youtube.com/watch?v=${video.youtubeId}`;
+          console.log('✅ Using direct YouTube URLs');
+        }
+      } catch (apiError) {
+        console.log('⚠️ API failed, using direct YouTube URLs');
+        // Fallback to direct YouTube URLs (still requires internet)
+        (videoParams as any).videoUrl = `https://www.youtube.com/embed/${video.youtubeId}?autoplay=1&playsinline=1&rel=0&showinfo=0&controls=1&modestbranding=1`;
+        (videoParams as any).iframeUrl = `https://www.youtube-nocookie.com/embed/${video.youtubeId}?autoplay=1&playsinline=1&rel=0&showinfo=0&controls=1&modestbranding=1&iv_load_policy=3&fs=1`;
+        (videoParams as any).watchUrl = `https://www.youtube.com/watch?v=${video.youtubeId}`;
       }
 
-      // Get the actual video URL from the API
-      const videoUrlData = await apiClient.getVideoUrl(video.youtubeId, token);
-      
       router.push({
         pathname: '/video-player',
-        params: {
-          youtubeId: video.youtubeId,
-          title: video.title,
-          videoUrl: videoUrlData.embedUrl,
-          iframeUrl: videoUrlData.iframeUrl,
-          watchUrl: videoUrlData.watchUrl,
-          approvedVideoId: video.id,
-          childId: selectedChild?.id || '',
-          channelName: video.channelName,
-          duration: video.duration || '',
-          isScheduled: video.isScheduled ? 'true' : 'false',
-          scheduledVideoId: video.scheduledVideoId || '',
-        },
+        params: videoParams,
       });
+
     } catch (error) {
-      console.error('Error getting video URL:', error);
-      // Fallback to YouTube watch URL
+      console.error('Critical error in video playback:', error);
+      // Even in worst case, try basic YouTube playback
       router.push({
         pathname: '/video-player',
         params: {
           youtubeId: video.youtubeId,
           title: video.title,
-          videoUrl: `https://www.youtube.com/watch?v=${video.youtubeId}`,
           approvedVideoId: video.id,
           childId: selectedChild?.id || '',
           channelName: video.channelName,
@@ -309,7 +244,7 @@ export default function HomeScreen() {
         <View style={styles.headerContent}>
           <TouchableOpacity style={styles.profileSection} onPress={switchProfile}>
             <LinearGradient
-              colors={Gradients.primaryPurple}
+              colors={['#8B5CF6', '#EC4899']}
               style={styles.profileAvatar}
             >
               <Text style={styles.avatarText}>
@@ -324,7 +259,7 @@ export default function HomeScreen() {
               </View>
             </View>
           </TouchableOpacity>
-          
+
           <TouchableOpacity style={styles.notificationButton}>
             <Ionicons name="notifications-outline" size={24} color={Colors.light.primary} />
           </TouchableOpacity>
@@ -351,7 +286,7 @@ export default function HomeScreen() {
             </View>
           </View>
         </LinearGradient>
-        
+
         {loading ? (
           <View style={styles.loadingContainer}>
             <View style={styles.loadingSpinner}>
@@ -371,81 +306,7 @@ export default function HomeScreen() {
           </View>
         ) : (
           <>
-            {/* Category Cards Section */}
-            <View style={styles.categoriesSection}>
-              <Text style={styles.sectionTitle}>Choose Learning Category</Text>
-              <View style={styles.categoryGrid}>
-                <TouchableOpacity style={styles.categoryCard}>
-                  <LinearGradient
-                    colors={Gradients.primaryPurple}
-                    style={styles.categoryGradient}
-                  >
-                    <View style={styles.categoryIcon}>
-                      <Text style={styles.categoryEmoji}>🔢</Text>
-                    </View>
-                    <Text style={styles.categoryTitle}>Math City</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-                
-                <TouchableOpacity style={styles.categoryCard}>
-                  <LinearGradient
-                    colors={Gradients.primaryPink}
-                    style={styles.categoryGradient}
-                  >
-                    <View style={styles.categoryIcon}>
-                      <Image 
-                        source={require('../../assets/app-images/icon2.png')} 
-                        style={styles.categoryIconImage}
-                        resizeMode="contain"
-                      />
-                    </View>
-                    <Text style={styles.categoryTitle}>Space Adventure</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-                
-                <TouchableOpacity style={styles.categoryCard}>
-                  <LinearGradient
-                    colors={Gradients.ocean}
-                    style={styles.categoryGradient}
-                  >
-                    <View style={styles.categoryIcon}>
-                      <Image 
-                        source={require('../../assets/app-images/icon1.png')} 
-                        style={styles.categoryIconImage}
-                        resizeMode="contain"
-                      />
-                    </View>
-                    <Text style={styles.categoryTitle}>World Explorer</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            </View>
 
-            {/* Fun Features Section */}
-            <View style={styles.featuresSection}>
-              <Text style={styles.sectionTitle}>Fun Learning Features</Text>
-              <View style={styles.featuresGrid}>
-                <TouchableOpacity style={styles.featureCard}>
-                  <LinearGradient
-                    colors={Gradients.sunset}
-                    style={styles.featureGradient}
-                  >
-                    <Ionicons name="trophy" size={32} color="rgba(255,255,255,0.9)" />
-                    <Text style={styles.featureTitle}>Achievements</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-                
-                <TouchableOpacity style={styles.featureCard}>
-                  <LinearGradient
-                    colors={Gradients.rainbow}
-                    style={styles.featureGradient}
-                  >
-                    <Ionicons name="star" size={32} color="rgba(255,255,255,0.9)" />
-                    <Text style={styles.featureTitle}>Progress</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            </View>
 
             {/* Video Grid */}
             <View style={styles.videosSection}>
@@ -453,9 +314,9 @@ export default function HomeScreen() {
               <View style={styles.videoGrid}>
                 {videos.map((video, index) => {
                   // Cycle through different gradient colors for cards
-                  const gradients = [Gradients.primaryPurple, Gradients.primaryPink, Gradients.ocean, Gradients.sunset];
+                  const gradients = [['#8B5CF6', '#EC4899'], ['#A855F7', '#EC4899'], ['#8B5CF6', '#3B82F6'], ['#F59E0B', '#EF4444']];
                   const cardGradient = gradients[index % gradients.length];
-                  
+
                   return (
                     <TouchableOpacity
                       key={video.id}
@@ -504,10 +365,10 @@ export default function HomeScreen() {
                           <Text style={styles.channelName}>{video.channelName}</Text>
                           <View style={styles.videoStats}>
                             <View style={styles.watchedIndicator}>
-                              <Ionicons 
-                                name={video.watched ? "checkmark-circle" : "time-outline"} 
-                                size={14} 
-                                color="rgba(255,255,255,0.8)" 
+                              <Ionicons
+                                name={video.watched ? "checkmark-circle" : "time-outline"}
+                                size={14}
+                                color="rgba(255,255,255,0.8)"
                               />
                               <Text style={styles.statusText}>
                                 {video.duration}
@@ -523,7 +384,7 @@ export default function HomeScreen() {
             </View>
           </>
         )}
-        
+
         {/* Bottom Spacing */}
         <View style={styles.bottomSpacing} />
       </ScrollView>
@@ -670,11 +531,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    ...shadows.button,
   },
   categoryGradient: {
     padding: 16,
@@ -717,11 +574,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    ...shadows.button,
   },
   featureGradient: {
     padding: 16,
@@ -784,11 +637,7 @@ const styles = StyleSheet.create({
   videoCard: {
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 10,
+    ...shadows.large,
     marginBottom: 8,
   },
   videoCardGradient: {
@@ -820,11 +669,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: Colors.light.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    ...shadows.primary,
   },
   newBadge: {
     position: 'absolute',
@@ -860,7 +705,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 12,
     right: 12,
-    backgroundColor: '#f59e0b', // Orange color for carried over
+    backgroundColor: Colors.light.warning, // Use purple warning color
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,

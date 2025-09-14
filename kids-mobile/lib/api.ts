@@ -1,24 +1,6 @@
 import { mobileRequestQueue } from './requestQueue';
-
-// API Configuration with better error handling
-const getApiBaseUrl = () => {
-  const envUrl = process.env.EXPO_PUBLIC_API_URL;
-
-  if (envUrl) {
-    console.log('🌐 Using configured API URL:', envUrl);
-    return envUrl;
-  }
-
-  // Fallback URLs to try
-  const fallbackUrls = [
-    'http://172.16.22.127:3000', // Current detected IP
-    'http://localhost:3000',     // Localhost fallback
-    'http://127.0.0.1:3000',     // IP fallback
-  ];
-
-  console.log('⚠️ No EXPO_PUBLIC_API_URL configured, using fallback:', fallbackUrls[0]);
-  return fallbackUrls[0];
-};
+import { withApiErrorHandling, retryWithBackoff } from './apiErrorHandler';
+import { getApiBaseUrl } from './productionConfig';
 
 const API_BASE_URL = getApiBaseUrl();
 console.log('🌐 Final API Base URL:', API_BASE_URL);
@@ -69,7 +51,7 @@ class ApiClient {
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
 
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...options.headers,
     };
@@ -78,33 +60,71 @@ class ApiClient {
       headers.Authorization = `Bearer ${token}`;
     }
 
-    try {
+    return retryWithBackoff(async () => {
       console.log(`🔄 Making API request to: ${url}`);
 
-      const response = await fetch(url, {
-        ...options,
-        headers,
-        timeout: 10000, // 10 second timeout
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
 
-      if (!response.ok) {
-        console.error(`❌ API request failed: ${response.status} ${response.statusText}`);
-        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      try {
+        const response = await fetch(url, {
+          ...options,
+          headers,
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorData = await response.text().catch(() => 'No error details');
+          console.error(`❌ API request failed: ${response.status} ${response.statusText}`, errorData);
+
+          const error: any = new Error(`API request failed: ${response.status} ${response.statusText}`);
+          error.response = {
+            status: response.status,
+            statusText: response.statusText,
+            data: { message: errorData }
+          };
+          throw error;
+        }
+
+        const data = await response.json();
+        console.log(`✅ API request successful for: ${endpoint}`);
+        return data;
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+
+        if (error.name === 'AbortError') {
+          console.error(`⏰ Request timeout for ${url}`);
+          const timeoutError: any = new Error('Request timeout - server may be unavailable');
+          timeoutError.isNetworkError = true;
+          throw timeoutError;
+        }
+
+        console.error(`🚨 Network error for ${url}:`, error);
+
+        // Enhance error with better context
+        if (error instanceof TypeError && error.message.includes('Network request failed')) {
+          const networkError: any = new Error(`Cannot connect to server. The backend may be offline or unreachable.`);
+          networkError.isNetworkError = true;
+          networkError.request = { url };
+          throw networkError;
+        }
+
+        // Pass through API errors with response
+        if (error.response) {
+          throw error;
+        }
+
+        // For other errors, mark as network errors
+        if (!error.isNetworkError) {
+          error.isNetworkError = true;
+          error.request = { url };
+        }
+
+        throw error;
       }
-
-      const data = await response.json();
-      console.log(`✅ API request successful for: ${endpoint}`);
-      return data;
-    } catch (error) {
-      console.error(`🚨 Network error for ${url}:`, error);
-
-      // Provide helpful error messages based on error type
-      if (error instanceof TypeError && error.message.includes('Network request failed')) {
-        throw new Error(`Cannot connect to server at ${API_BASE_URL}. Please check:\n1. Your development server is running on port 3000\n2. Your mobile device and computer are on the same WiFi network\n3. Your firewall allows connections on port 3000`);
-      }
-
-      throw error;
-    }
+    }, 2, 1000, `API ${endpoint}`);
   }
 
   async getChildren(token: string): Promise<Child[]> {
@@ -136,14 +156,14 @@ class ApiClient {
     const requestId = `videos-${childId}`;
 
     return mobileRequestQueue.execute(requestId, async () => {
-      const response = await this.makeRequest<{ videos: any[] }>(
-        `/api/videos?childId=${childId}`,
+      const response = await this.makeRequest<{ approvedVideos: any[] }>(
+        `/api/approved-videos?childId=${childId}`,
         { method: 'GET' },
         token
       );
 
       // Transform the API response to match our ApprovedVideo interface
-      return response.videos.map(video => ({
+      return response.approvedVideos.map(video => ({
         id: video.id,
         childId: childId,
         youtubeId: video.youtubeId,

@@ -1,4 +1,4 @@
-import { ExpoRequest, ExpoResponse } from 'expo-router/server';
+import type { ExpoRequest, ExpoResponse } from 'expo-router/server';
 import { generateVideoSummary } from '../../../lib/openai';
 import { db } from '../../../lib/db';
 

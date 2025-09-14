@@ -1,19 +1,19 @@
 /**
- * Kids-friendly color palette inspired by playful learning apps
- * Features bright, engaging colors with purple gradients and pink accents
+ * Professional purple-white theme for kids learning platform
+ * Clean, elegant design with subtle purple accents
  */
 
-// Primary brand colors
+// Primary purple theme colors
 const primaryPurple = '#8B5CF6';
 const primaryPurpleLight = '#A855F7';
-const primaryPink = '#EC4899';
-const primaryPinkLight = '#F472B6';
+const primaryPurpleLighter = '#C084FC';
+const primaryPurpleDark = '#7C3AED';
 
-// Secondary colors
-const secondaryBlue = '#3B82F6';
-const secondaryGreen = '#10B981';
-const secondaryYellow = '#F59E0B';
-const secondaryOrange = '#F97316';
+// Subtle accent colors (keeping minimal and professional)
+const softPurple = '#F3E8FF';
+const lightPurple = '#E9D5FF';
+const accentGreen = '#10B981'; // For success states only
+const accentRed = '#EF4444'; // For error states only
 
 // Neutral colors
 const white = '#FFFFFF';
@@ -30,26 +30,22 @@ export const Colors = {
     icon: '#64748B',
     tabIconDefault: '#94A3B8',
     tabIconSelected: primaryPurple,
-    
-    // Brand colors
+
+    // Brand colors - focused on purple theme
     primary: primaryPurple,
     primaryLight: primaryPurpleLight,
-    secondary: primaryPink,
-    secondaryLight: primaryPinkLight,
-    
-    // Accent colors
-    blue: secondaryBlue,
-    green: secondaryGreen,
-    yellow: secondaryYellow,
-    orange: secondaryOrange,
-    
+    secondary: primaryPurpleLighter,
+    secondaryLight: lightPurple,
+
+    // Minimal accent colors - only essential ones
+    success: accentGreen,
+    warning: primaryPurple, // Use purple instead of bright yellow
+    error: accentRed,
+
     // UI colors
     cardBackground: white,
     border: '#E2E8F0',
-    success: secondaryGreen,
-    warning: secondaryYellow,
-    error: '#EF4444',
-    
+
     // Text colors
     textPrimary: '#1E293B',
     textSecondary: '#64748B',
@@ -64,26 +60,22 @@ export const Colors = {
     icon: '#94A3B8',
     tabIconDefault: '#64748B',
     tabIconSelected: primaryPurpleLight,
-    
-    // Brand colors
+
+    // Brand colors - focused on purple theme
     primary: primaryPurpleLight,
-    primaryLight: '#C084FC',
-    secondary: primaryPinkLight,
-    secondaryLight: '#FBBF24',
-    
-    // Accent colors
-    blue: '#60A5FA',
-    green: '#34D399',
-    yellow: '#FBBF24',
-    orange: '#FB923C',
-    
+    primaryLight: primaryPurpleLighter,
+    secondary: primaryPurpleLighter,
+    secondaryLight: lightPurple,
+
+    // Minimal accent colors - only essential ones
+    success: '#34D399',
+    warning: primaryPurpleLight, // Use purple instead of bright yellow
+    error: '#F87171',
+
     // UI colors
     cardBackground: '#1E293B',
     border: '#334155',
-    success: '#34D399',
-    warning: '#FBBF24',
-    error: '#F87171',
-    
+
     // Text colors
     textPrimary: '#F1F5F9',
     textSecondary: '#CBD5E1',
@@ -92,11 +84,52 @@ export const Colors = {
   },
 };
 
-// Gradient definitions for easy reuse
+// Professional color palette for different UI elements
+export const ThemeColors = {
+  // Profile avatar colors - balanced variety with purple theme
+  avatars: [
+    '#8B5CF6', // Primary purple
+    '#10B981', // Emerald green (fresh, growth-oriented)
+    '#6366F1', // Indigo (tech-friendly, calm)
+    '#F59E0B', // Amber (warm, energetic)
+    '#EF4444', // Red (vibrant, playful)
+    '#06B6D4', // Cyan (cool, modern)
+  ],
+
+  // Analytics stat colors - professional and distinct
+  analytics: {
+    watchTime: '#8B5CF6',      // Primary purple for time-based stats
+    completion: '#10B981',     // Green for completion/success
+    activity: '#6366F1',       // Indigo for activity stats
+    progress: '#A855F7',       // Light purple for progress
+    children: '#7C3AED',       // Dark purple for children stats
+    categories: '#C084FC',     // Light purple for categories
+  },
+
+  // Chart and visualization colors
+  charts: {
+    primary: '#8B5CF6',
+    secondary: '#A855F7',
+    tertiary: '#C084FC',
+    accent: '#6366F1',
+    success: '#10B981',
+    warning: '#F59E0B',
+  }
+};
+
+// Gradient definitions for easy reuse - Balanced theme with variety
 export const Gradients = {
   primaryPurple: ['#8B5CF6', '#A855F7'],
-  primaryPink: ['#EC4899', '#F472B6'],
-  rainbow: ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981'],
-  sunset: ['#F97316', '#F59E0B', '#EC4899'],
-  ocean: ['#3B82F6', '#10B981'],
+  emeraldGreen: ['#10B981', '#34D399'],
+  indigoBlue: ['#6366F1', '#8B5CF6'],
+  warmAmber: ['#F59E0B', '#FBBF24'],
+  vibrantRed: ['#EF4444', '#F87171'],
+  coolCyan: ['#06B6D4', '#22D3EE'],
+  // Legacy gradients for backward compatibility
+  lightPurple: ['#A855F7', '#C084FC'],
+  softPurple: ['#F3E8FF', '#E9D5FF'],
+  purpleToWhite: ['#8B5CF6', '#FFFFFF'],
+  purpleBlue: ['#8B5CF6', '#7C3AED'],
+  sunset: ['#F59E0B', '#FBBF24'], // Warm amber gradient
+  ocean: ['#06B6D4', '#6366F1'], // Cyan to indigo
 };

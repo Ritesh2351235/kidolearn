@@ -1,4 +1,4 @@
-import { ExpoRequest, ExpoResponse } from 'expo-router/server';
+import type { ExpoRequest, ExpoResponse } from 'expo-router/server';
 import { db } from '@/lib/db';
 
 export async function GET(request: ExpoRequest): Promise<Response> {
@@ -125,33 +125,10 @@ export async function GET(request: ExpoRequest): Promise<Response> {
       error
     });
     
-    // Return mock data as fallback
-    console.log('🔄 Returning mock data as fallback');
-    const mockChildren = [
-      {
-        id: '1',
-        parentId: 'mock-parent',
-        name: 'Emma',
-        birthday: new Date(2017, 0, 15).toISOString(),
-        interests: ['animals', 'music', 'art'],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        id: '2',
-        parentId: 'mock-parent',
-        name: 'Liam',
-        birthday: new Date(2019, 6, 20).toISOString(),
-        interests: ['cars', 'sports', 'science'],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
-    ];
-
     return Response.json({ 
-      children: mockChildren,
-      total: mockChildren.length
-    });
+      error: 'Unable to load children data',
+      message: 'Database connection failed'
+    }, { status: 500 });
   }
 }
 

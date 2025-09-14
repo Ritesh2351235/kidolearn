@@ -8,7 +8,7 @@ import { TestimonialsColumn } from "@/components/ui/testimonials-columns-1";
 
 const testimonials = [
   {
-    text: "My daughter absolutely loves KidoLearn! She's learning so much while having fun. The content is perfect for her age and keeps her engaged.",
+    text: "My daughter absolutely loves Kido Learn! She's learning so much while having fun. The content is perfect for her age and keeps her engaged.",
     image: "https://images.unsplash.com/photo-1494790108755-2616b612b789?w=400&h=400&fit=crop&crop=face",
     name: "Sarah Johnson",
     role: "Mom of Emma, 7",
@@ -20,13 +20,13 @@ const testimonials = [
     role: "Dad of Alex, 5",
   },
   {
-    text: "The interactive videos have helped my kids develop a real love for learning. They ask to use KidoLearn every day after school!",
+    text: "The interactive videos have helped my kids develop a real love for learning. They ask to use Kido Learn every day after school!",
     image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face",
     name: "Lisa Martinez",
     role: "Mom of twins, age 6",
   },
   {
-    text: "As a teacher and parent, I appreciate how KidoLearn combines education with entertainment. My children are learning without realizing it.",
+    text: "As a teacher and parent, I appreciate how Kido Learn combines education with entertainment. My children are learning without realizing it.",
     image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop&crop=face",
     name: "David Wilson",
     role: "Teacher & Dad",
@@ -38,7 +38,7 @@ const testimonials = [
     role: "Mom of Sofia, 8",
   },
   {
-    text: "KidoLearn has made homeschooling so much easier. The structured content helps me plan lessons while keeping my kids engaged.",
+    text: "Kido Learn has made homeschooling so much easier. The structured content helps me plan lessons while keeping my kids engaged.",
     image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face",
     name: "James Thompson",
     role: "Homeschooling Dad",
@@ -50,7 +50,7 @@ const testimonials = [
     role: "Mom of Lucas, 9",
   },
   {
-    text: "I was skeptical about screen time for learning, but KidoLearn has changed my perspective. The content is high-quality and educational.",
+    text: "I was skeptical about screen time for learning, but Kido Learn has changed my perspective. The content is high-quality and educational.",
     image: "https://images.unsplash.com/photo-1463453091185-61582044d556?w=400&h=400&fit=crop&crop=face",
     name: "Robert Kim",
     role: "Dad of Maya, 4",
@@ -281,6 +281,98 @@ export default function Home() {
         {/* Testimonials Section */}
         <TestimonialsSection />
 
+        {/* FAQ Section */}
+        <section className="px-6 py-24 bg-muted/30">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl lg:text-5xl font-bold text-foreground mb-6 tracking-tight font-serif-elegant">
+                Frequently Asked <span className="font-light italic text-muted-foreground">Questions</span>
+              </h2>
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                Everything you need to know about Kido Learn.
+              </p>
+            </div>
+
+            <div className="space-y-6">
+              <Card className="border-2 hover:border-foreground transition-colors">
+                <CardHeader>
+                  <CardTitle className="text-xl font-bold text-foreground">
+                    Can I schedule content for my children on mobile?
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Yes! Parents can now schedule educational content directly from the Kido Learn mobile app.
+                    Use the Parent Dashboard to browse, approve, and schedule videos for specific times.
+                    Your children will receive their scheduled content automatically.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 hover:border-foreground transition-colors">
+                <CardHeader>
+                  <CardTitle className="text-xl font-bold text-foreground">
+                    How does the mobile scheduling work?
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Simply open the mobile app, go to the Parent Dashboard, browse recommended content,
+                    and tap "Schedule" on any video. Set the time and date, and the content will appear
+                    in your child's feed at the scheduled time. You can also view analytics and manage
+                    all scheduled content from your phone.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 hover:border-foreground transition-colors">
+                <CardHeader>
+                  <CardTitle className="text-xl font-bold text-foreground">
+                    Is the content safe for my children?
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Absolutely! All content on Kido Learn is carefully curated by education experts and
+                    child safety specialists. Every video, activity, and game is age-appropriate and
+                    aligned with educational standards. Parents have full control over what their children can access.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 hover:border-foreground transition-colors">
+                <CardHeader>
+                  <CardTitle className="text-xl font-bold text-foreground">
+                    Can I track my child's learning progress?
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Yes! Both the web dashboard and mobile app provide detailed analytics showing your child's
+                    watch time, completion rates, favorite categories, and learning milestones. You can monitor
+                    progress, identify interests, and celebrate achievements all in one place.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 hover:border-foreground transition-colors">
+                <CardHeader>
+                  <CardTitle className="text-xl font-bold text-foreground">
+                    What ages does Kido Learn support?
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Kido Learn is designed for children ages 3-12, with content automatically adapted to each
+                    child's age group and learning level. Our AI-powered recommendation system ensures that
+                    every child receives age-appropriate, engaging, and educational content.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </section>
+
         {/* CTA Section */}
         <section className="px-6 py-24 bg-foreground">
           <div className="max-w-4xl mx-auto text-center">
@@ -315,7 +407,7 @@ export default function Home() {
         <footer className="px-6 py-16 bg-foreground text-background">
           <div className="max-w-4xl mx-auto text-center">
             <div className="mb-8">
-              <span className="text-3xl font-bold">KidoLearn</span>
+              <span className="text-3xl font-bold">Kido Learn</span>
             </div>
             <p className="text-background/70 leading-relaxed mb-12 max-w-2xl mx-auto">
               Making learning fun and safe for children everywhere.
@@ -332,7 +424,7 @@ export default function Home() {
 
             <Separator className="mb-8 bg-background/20" />
             <p className="text-background/70 text-sm">
-              © 2024 KidoLearn. All rights reserved.
+              © 2024 Kido Learn. All rights reserved.
             </p>
           </div>
         </footer>

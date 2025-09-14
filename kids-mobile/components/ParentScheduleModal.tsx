@@ -12,7 +12,8 @@ import {
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { API_ENDPOINTS } from '@/constants/Api';
+import { apiClient } from '@/lib/api';
+import { getApiBaseUrl } from '@/lib/productionConfig';
 import { useAuth } from '@clerk/clerk-expo';
 
 interface ApprovedVideo {
@@ -67,42 +68,47 @@ export default function ParentScheduleModal({ visible, onClose, onSchedule }: Pa
         return;
       }
 
-      // Load approved videos
+      // Load children first using API client
       try {
-        const videosResponse = await fetch(API_ENDPOINTS.approvedVideos, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        if (videosResponse.ok) {
-          const videosData = await videosResponse.json();
-          setApprovedVideos(videosData.approvedVideos || []);
-          console.log('✅ Loaded', videosData.approvedVideos?.length || 0, 'approved videos for scheduling');
+        const childrenData = await apiClient.getChildren(token);
+        setChildren(childrenData || []);
+        console.log('✅ Loaded', childrenData?.length || 0, 'children for scheduling');
+        
+        // Load approved videos for all children
+        if (childrenData && childrenData.length > 0) {
+          const allVideos: ApprovedVideo[] = [];
+          
+          for (const child of childrenData) {
+            try {
+              const childVideos = await apiClient.getApprovedVideos(child.id, token);
+              // Format videos to match the interface
+              const formattedVideos = childVideos.map(video => ({
+                id: video.id,
+                title: video.title,
+                duration: video.duration || 'Unknown',
+                thumbnail: video.thumbnail,
+                category: 'Educational',
+                child: {
+                  id: child.id,
+                  name: child.name
+                }
+              }));
+              allVideos.push(...formattedVideos);
+            } catch (videoError) {
+              console.log(`❌ Error loading videos for child ${child.name}:`, videoError);
+            }
+          }
+          
+          setApprovedVideos(allVideos);
+          console.log('✅ Loaded', allVideos.length, 'total approved videos for scheduling');
+        } else {
+          console.log('⚠️ No children found, cannot load approved videos');
+          setApprovedVideos([]);
         }
       } catch (error) {
-        console.log('❌ Error loading approved videos:', error);
-        setApprovedVideos([]);
-      }
-
-      // Load children
-      try {
-        const childrenResponse = await fetch(API_ENDPOINTS.children, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        if (childrenResponse.ok) {
-          const childrenData = await childrenResponse.json();
-          setChildren(childrenData.children || []);
-          console.log('✅ Loaded', childrenData.children?.length || 0, 'children for scheduling');
-        }
-      } catch (error) {
-        console.log('❌ Error loading children:', error);
+        console.log('❌ Error loading children and videos:', error);
         setChildren([]);
+        setApprovedVideos([]);
       }
       
     } catch (error) {

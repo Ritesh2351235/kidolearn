@@ -1,4 +1,4 @@
-import { ExpoRequest, ExpoResponse } from 'expo-router/server';
+import type { ExpoRequest, ExpoResponse } from 'expo-router/server';
 import { db } from '@/lib/db';
 import { approvalThrottle, createRateLimitResponse } from '@/lib/throttle';
 

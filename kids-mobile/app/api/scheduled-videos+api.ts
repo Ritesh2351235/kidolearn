@@ -1,4 +1,4 @@
-import { ExpoRequest, ExpoResponse } from 'expo-router/server';
+import type { ExpoRequest, ExpoResponse } from 'expo-router/server';
 import { db } from '@/lib/db';
 
 export async function GET(request: ExpoRequest): Promise<Response> {

@@ -6,10 +6,13 @@ import {
   StyleSheet,
   ActivityIndicator,
   Dimensions,
+  Alert,
+  Linking,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import { useActivityTracker } from '@/hooks/useActivityTracker';
+import { Colors } from '@/constants/Colors';
 
 interface YouTubePlayerProps {
   youtubeId: string;
@@ -23,24 +26,27 @@ interface YouTubePlayerProps {
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-export default function YouTubePlayer({ 
-  youtubeId, 
-  title, 
+export default function YouTubePlayer({
+  youtubeId,
+  title,
   approvedVideoId,
   childId,
   channelName = '',
   duration,
-  onClose 
+  onClose
 }: YouTubePlayerProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [hasStartedPlaying, setHasStartedPlaying] = useState(false);
-  
+  const [retryCount, setRetryCount] = useState(0);
+
   const activityTracker = useActivityTracker();
   const playStartTimeRef = useRef<number | null>(null);
   const videoStartedRef = useRef(false);
 
   const embedUrl = `https://www.youtube-nocookie.com/embed/${youtubeId}?autoplay=1&playsinline=1&rel=0&showinfo=0&controls=1&modestbranding=1&iv_load_policy=3&fs=1`;
+  const fallbackUrl = `https://www.youtube.com/watch?v=${youtubeId}`;
 
   const handleClose = async () => {
     // Track video exit if user closes before completion
@@ -59,7 +65,7 @@ export default function YouTubePlayer({
         console.error('Error tracking video exit:', error);
       }
     }
-    
+
     if (onClose) {
       onClose();
     }
@@ -72,13 +78,13 @@ export default function YouTubePlayer({
 
   const handleLoadEnd = async () => {
     setIsLoading(false);
-    
+
     // Track video play when the video loads and starts (since autoplay=1)
     if (childId && !videoStartedRef.current) {
       videoStartedRef.current = true;
       setHasStartedPlaying(true);
       playStartTimeRef.current = Date.now();
-      
+
       try {
         await activityTracker.trackVideoPlay(
           childId,
@@ -89,7 +95,7 @@ export default function YouTubePlayer({
           approvedVideoId,
           0
         );
-        
+
         console.log('Video play tracked for:', title);
       } catch (error) {
         console.error('Error tracking video play:', error);
@@ -97,9 +103,44 @@ export default function YouTubePlayer({
     }
   };
 
-  const handleError = () => {
+  const handleError = (error?: any) => {
     setIsLoading(false);
     setHasError(true);
+
+    const errorMsg = error?.nativeEvent?.description || 'Unable to load video';
+    setErrorMessage(errorMsg);
+
+    console.error('YouTube Player Error:', error);
+  };
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+    setHasError(false);
+    setErrorMessage('');
+    setIsLoading(true);
+  };
+
+  const openInYouTube = async () => {
+    try {
+      const canOpen = await Linking.canOpenURL(fallbackUrl);
+      if (canOpen) {
+        await Linking.openURL(fallbackUrl);
+        if (onClose) onClose();
+      } else {
+        Alert.alert(
+          'Unable to Open',
+          'YouTube app is not installed on this device.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error opening YouTube:', error);
+      Alert.alert(
+        'Error',
+        'Unable to open YouTube. Please try again later.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   // Track video completion based on duration
@@ -118,11 +159,11 @@ export default function YouTubePlayer({
     };
 
     const durationSeconds = parseDuration(duration);
-    
+
     if (durationSeconds > 0) {
       // Set a timer to track completion after 90% of video duration
       const completionThreshold = durationSeconds * 0.9 * 1000; // Convert to milliseconds
-      
+
       const timer = setTimeout(async () => {
         try {
           await activityTracker.trackVideoComplete(
@@ -134,7 +175,7 @@ export default function YouTubePlayer({
             approvedVideoId,
             durationSeconds
           );
-          
+
           console.log('Video completion tracked for:', title);
         } catch (error) {
           console.error('Error tracking video completion:', error);
@@ -153,19 +194,38 @@ export default function YouTubePlayer({
         <View style={styles.errorContainer}>
           <View style={styles.header}>
             <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
-              <Ionicons name="close" size={24} color="#fff" />
+              <Ionicons name="close" size={24} color={Colors.light.textOnColor} />
             </TouchableOpacity>
             <Text style={styles.title} numberOfLines={1}>
               {title}
             </Text>
           </View>
-          
+
           <View style={styles.errorContent}>
-            <Ionicons name="alert-circle" size={64} color="#ff4444" />
-            <Text style={styles.errorTitle}>Unable to load video</Text>
+            <Ionicons name="alert-circle" size={64} color={Colors.light.error} />
+            <Text style={styles.errorTitle}>Video Unavailable</Text>
             <Text style={styles.errorText}>
-              This video could not be played. Please check your internet connection and try again.
+              {errorMessage || 'This video could not be played. Please check your internet connection and try again.'}
             </Text>
+
+            <View style={styles.errorActions}>
+              {retryCount < 3 && (
+                <TouchableOpacity style={[styles.actionButton, styles.retryButton]} onPress={handleRetry}>
+                  <Ionicons name="refresh" size={20} color={Colors.light.textOnColor} />
+                  <Text style={styles.actionButtonText}>Try Again</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity style={[styles.actionButton, styles.youtubeButton]} onPress={openInYouTube}>
+                <Ionicons name="logo-youtube" size={20} color={Colors.light.textOnColor} />
+                <Text style={styles.actionButtonText}>Open in YouTube</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.actionButton, styles.closeActionButton]} onPress={handleClose}>
+                <Ionicons name="close" size={20} color={Colors.light.textOnColor} />
+                <Text style={styles.actionButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </View>
@@ -176,7 +236,7 @@ export default function YouTubePlayer({
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
-          <Ionicons name="close" size={24} color="#fff" />
+          <Ionicons name="close" size={24} color={Colors.light.textOnColor} />
         </TouchableOpacity>
         <Text style={styles.title} numberOfLines={1}>
           {title}
@@ -185,7 +245,7 @@ export default function YouTubePlayer({
 
       {isLoading && (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#ffffff" />
+          <ActivityIndicator size="large" color={Colors.light.textOnColor} />
           <Text style={styles.loadingText}>Loading video...</Text>
         </View>
       )}
@@ -280,8 +340,39 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#cccccc',
-    fontSize: 14,
+    fontSize: 16,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 22,
+    marginBottom: 32,
+  },
+  errorActions: {
+    alignItems: 'center',
+    gap: 16,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    gap: 8,
+    minWidth: 160,
+    justifyContent: 'center',
+  },
+  retryButton: {
+    backgroundColor: Colors.light.primary,
+  },
+  youtubeButton: {
+    backgroundColor: '#FF0000',
+  },
+  closeActionButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  actionButtonText: {
+    color: Colors.light.textOnColor,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

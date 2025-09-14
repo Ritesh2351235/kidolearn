@@ -1,9 +1,11 @@
-import { ExpoRequest, ExpoResponse } from 'expo-router/server';
+import type { ExpoRequest, ExpoResponse } from 'expo-router/server';
 import { auth } from '@clerk/nextjs/server';
 import { getRecommendationsForChild, searchVideosAdvanced, SearchFilters } from '../../lib/youtube';
 import { db } from '../../lib/db';
 import { requestDeduplication } from '../../lib/requestDeduplication';
 import { recommendationsThrottle, createRateLimitResponse } from '../../lib/throttle';
+import { optimizedYouTubeClient } from '../../lib/optimizedYouTubeClient';
+import { quotaManager } from '../../lib/youtubeQuotaManager';
 
 // Helper functions
 function getCategoryKeywords(category: string): string {
@@ -37,7 +39,7 @@ export async function GET(request: ExpoRequest): Promise<ExpoResponse> {
     // Get user ID for throttling (you may need to adjust this based on your auth system)
     const authHeader = request.headers.get('Authorization');
     const userId = authHeader ? 'authenticated-user' : 'anonymous'; // Simplified for demo
-    
+
     // Check rate limiting
     const throttleResult = await recommendationsThrottle.checkAndIncrement(userId);
     if (!throttleResult.allowed) {
@@ -45,7 +47,7 @@ export async function GET(request: ExpoRequest): Promise<ExpoResponse> {
       const rateLimitResponse = createRateLimitResponse(throttleResult.retryAfter!);
       return new Response(JSON.stringify(rateLimitResponse), {
         status: 429,
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Retry-After': throttleResult.retryAfter!.toString()
         }
@@ -61,11 +63,11 @@ export async function GET(request: ExpoRequest): Promise<ExpoResponse> {
     const uploadDate = url.searchParams.get('uploadDate');
     const sortBy = url.searchParams.get('sortBy');
     const pageToken = url.searchParams.get('pageToken');
-    const maxResults = parseInt(url.searchParams.get('maxResults') || '50');
+    const maxResults = parseInt(url.searchParams.get('maxResults') || '10');
 
     if (!childId) {
       console.log('❌ No childId provided');
-      return new Response(JSON.stringify({ error: 'Child ID required' }), { 
+      return new Response(JSON.stringify({ error: 'Child ID required' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -97,7 +99,7 @@ export async function GET(request: ExpoRequest): Promise<ExpoResponse> {
 
     if (!child) {
       console.log('❌ Child not found');
-      return new Response(JSON.stringify({ error: 'Child not found' }), { 
+      return new Response(JSON.stringify({ error: 'Child not found' }), {
         status: 404,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -109,10 +111,10 @@ export async function GET(request: ExpoRequest): Promise<ExpoResponse> {
     // Validate child has interests
     if (!child.interests || child.interests.length === 0) {
       console.log('⚠️ Child has no interests defined');
-      return new Response(JSON.stringify({ 
+      return new Response(JSON.stringify({
         recommendations: [],
-        message: 'Please add interests to the child\'s profile to get recommendations.' 
-      }), { 
+        message: 'Please add interests to the child\'s profile to get recommendations.'
+      }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -132,73 +134,104 @@ export async function GET(request: ExpoRequest): Promise<ExpoResponse> {
       JSON.stringify({ childId, searchQuery, category, duration, uploadDate, sortBy, pageToken, maxResults }),
       userId
     );
-    
+
     console.log('🔑 Request key generated:', requestKey);
 
     let result;
-    
+
+    // Check quota status first
+    const quotaStatus = quotaManager.getUserQuotaStatus(userId);
+    console.log('📊 User quota status:', quotaStatus);
+
     // Use request deduplication to prevent duplicate API calls
     result = await requestDeduplication.deduplicate(
       requestKey,
       async () => {
+        // Reduce maxResults to save quota (cap at 6 instead of 10+)
+        const optimizedMaxResults = Math.min(maxResults, 6);
+
         if (searchQuery) {
-          // Direct search query - ignore category filters
-          console.log('🔍 Performing direct search for:', searchQuery);
-          const searchFilters: SearchFilters = {};
-          if (duration && duration !== 'any') searchFilters.duration = duration as any;
-          if (uploadDate && uploadDate !== 'any') searchFilters.uploadDate = uploadDate as any;
-          if (sortBy) searchFilters.sortBy = sortBy as any;
-          
-          return await searchVideosAdvanced(searchQuery, {
-            maxResults,
+          // Direct search query using optimized client
+          console.log('🔍 Performing optimized direct search for:', searchQuery);
+          const searchResult = await optimizedYouTubeClient.searchVideos(searchQuery, userId, {
+            maxResults: optimizedMaxResults,
             pageToken: pageToken || undefined,
-            filters: searchFilters
+            filters: {
+              duration: duration !== 'any' ? duration as any : undefined,
+              uploadDate: uploadDate !== 'any' ? uploadDate as any : undefined,
+              sortBy: sortBy as any
+            }
           });
+
+          return {
+            videos: searchResult.videos,
+            nextPageToken: searchResult.nextPageToken,
+            totalResults: searchResult.videos.length,
+            fromCache: searchResult.fromCache,
+            quotaUsed: searchResult.quotaUsed
+          };
+
         } else if (category && category !== 'all') {
-          // Category-based search
-          console.log('📂 Performing category-based search for:', category);
-          
+          // Category-based search using optimized client
+          console.log('📂 Performing optimized category-based search for:', category);
+
           const categoryKeywords = getCategoryKeywords(category as any);
           const ageGroup = getAgeGroup(childAge);
           const categoryQuery = `${categoryKeywords} for kids ${ageGroup}`;
-          console.log('📚 Using category search:', categoryQuery);
-          
-          return await searchVideosAdvanced(categoryQuery, {
-            maxResults,
+          console.log('📚 Using optimized category search:', categoryQuery);
+
+          const searchResult = await optimizedYouTubeClient.searchVideos(categoryQuery, userId, {
+            maxResults: optimizedMaxResults,
             pageToken: pageToken || undefined,
             filters
           });
-        } else {
-          // Get recommendations based on child's interests
-          console.log('🎬 Fetching YouTube recommendations based on interests...');
-          const videos = await getRecommendationsForChild(child.interests, childAge, {
-            maxResults,
-            pageToken: pageToken || undefined,
-            filters
-          });
-          
+
           return {
-            videos,
+            videos: searchResult.videos,
+            nextPageToken: searchResult.nextPageToken,
+            totalResults: searchResult.videos.length,
+            fromCache: searchResult.fromCache,
+            quotaUsed: searchResult.quotaUsed
+          };
+
+        } else {
+          // Get recommendations using optimized client
+          console.log('🎬 Fetching optimized YouTube recommendations based on interests...');
+          const recommendationsResult = await optimizedYouTubeClient.getRecommendations(
+            child.interests,
+            childAge,
+            userId,
+            {
+              maxResults: optimizedMaxResults,
+              pageToken: pageToken || undefined,
+              filters
+            }
+          );
+
+          return {
+            videos: recommendationsResult.videos,
             nextPageToken: undefined,
-            totalResults: videos.length
+            totalResults: recommendationsResult.videos.length,
+            fromCache: recommendationsResult.fromCache,
+            quotaUsed: recommendationsResult.quotaUsed
           };
         }
       },
-      3 * 60 * 1000 // 3 minutes cache for recommendations
+      6 * 60 * 1000 // Extended cache to 6 minutes for recommendations
     );
-    
+
     console.log('📊 Videos retrieved:', result.videos.length);
-    
+
     if (result.videos.length === 0) {
       console.log('⚠️ No videos found');
-      return new Response(JSON.stringify({ 
+      return new Response(JSON.stringify({
         recommendations: [],
         nextPageToken: result.nextPageToken,
         totalResults: Math.min(result.totalResults || 0, 1000),
-        message: searchQuery 
+        message: searchQuery
           ? 'No videos found for your search. Try different keywords or filters.'
-          : 'No recommendations found. Try updating the child\'s interests or check your YouTube API configuration.' 
-      }), { 
+          : 'No recommendations found. Try updating the child\'s interests or check your YouTube API configuration.'
+      }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -210,13 +243,23 @@ export async function GET(request: ExpoRequest): Promise<ExpoResponse> {
       summary: '', // Empty summary - will be generated on demand
     }));
 
+    // Get updated quota status
+    const finalQuotaStatus = quotaManager.getUserQuotaStatus(userId);
+
     console.log('✅ Recommendations prepared:', recommendations.length);
 
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       recommendations,
       nextPageToken: result.nextPageToken,
-      totalResults: Math.min(result.totalResults || 0, 1000)
-    }), { 
+      totalResults: Math.min(result.totalResults || 0, 1000),
+      // Include quota information for client-side management
+      quotaInfo: {
+        searchesUsed: finalQuotaStatus.searchesUsed,
+        searchesRemaining: finalQuotaStatus.searchesRemaining,
+        fromCache: result.fromCache || false,
+        quotaUsed: result.quotaUsed || false
+      }
+    }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
@@ -226,11 +269,11 @@ export async function GET(request: ExpoRequest): Promise<ExpoResponse> {
       stack: error instanceof Error ? error.stack : undefined,
       error
     });
-    
-    return new Response(JSON.stringify({ 
+
+    return new Response(JSON.stringify({
       error: 'Failed to fetch recommendations',
       details: error instanceof Error ? error.message : 'Unknown error'
-    }), { 
+    }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });

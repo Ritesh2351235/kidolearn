@@ -25,10 +25,10 @@ export default function AuthScreen() {
       if (createdSessionId) {
         console.log('OAuth successful, setting active session...');
         await setActive!({ session: createdSessionId });
-        
+
         // Wait longer for the session to be fully established
         await new Promise(resolve => setTimeout(resolve, 2000));
-        
+
         // Redirect to main dashboard after successful authentication
         router.replace('/main-dashboard');
       } else {
@@ -84,9 +84,9 @@ export default function AuthScreen() {
 
             <View style={styles.faqContent}>
               <View style={styles.faqItem}>
-                <Text style={styles.faqQuestion}>👨‍👩‍👧‍👦 What is Kids Curator?</Text>
+                <Text style={styles.faqQuestion}>👨‍👩‍👧‍👦 What is Kido Learn?</Text>
                 <Text style={styles.faqAnswer}>
-                  Kids Curator is a safe learning platform where parents can curate and approve educational content for their children. 
+                  Kido Learn is a safe learning platform where parents can curate and approve educational content for their children.
                   Your kids can only watch videos that you&apos;ve pre-approved, ensuring a safe and educational experience.
                 </Text>
               </View>
@@ -112,7 +112,7 @@ export default function AuthScreen() {
               <View style={styles.faqItem}>
                 <Text style={styles.faqQuestion}>🎯 Why is this better?</Text>
                 <Text style={styles.faqAnswer}>
-                  Unlike YouTube Kids where algorithms decide content, YOU choose exactly what your children can watch. 
+                  Unlike YouTube Kids where algorithms decide content, YOU choose exactly what your children can watch.
                   No unwanted surprises, no inappropriate recommendations - just the educational content you trust.
                 </Text>
               </View>
@@ -140,20 +140,20 @@ export default function AuthScreen() {
           {/* Hero Section */}
           <View style={styles.heroSection}>
             <View style={styles.logoContainer}>
-              <Image 
-                source={require('../assets/app-images/illustrator.png')} 
+              <Image
+                source={require('../assets/app-images/illustrator.png')}
                 style={styles.heroImage}
                 resizeMode="contain"
               />
             </View>
-            <Text style={styles.title}>Welcome to Kids Land! 🎈</Text>
+            <Text style={styles.title}>Welcome to Kido Learn! 🎈</Text>
             <Text style={styles.subtitle}>Safe, curated learning adventures for your children</Text>
           </View>
 
           {/* Sign In Options */}
           <View style={styles.authSection}>
             <Text style={styles.sectionTitle}>Get Started</Text>
-            
+
             {/* Unified Sign In */}
             <TouchableOpacity style={styles.signInCard} onPress={handleSignIn} activeOpacity={0.9}>
               <LinearGradient
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 32,
   },
-  
+
   // Hero Section
   heroSection: {
     alignItems: 'center',
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     maxWidth: 280,
     lineHeight: 24,
   },
-  
+
   // Auth Section
   authSection: {
     marginBottom: 32,
@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
+
   // Help Section
   helpSection: {
     marginBottom: 32,
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     marginRight: 8,
   },
-  
+
   // Footer
   footer: {
     alignItems: 'center',
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.content.regular,
     maxWidth: 300,
   },
-  
+
   // FAQ Styles
   faqContainer: {
     flex: 1,

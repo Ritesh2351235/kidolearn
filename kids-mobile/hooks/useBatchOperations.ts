@@ -72,7 +72,8 @@ export function useBatchOperations() {
     try {
       console.log(`📦 Batch approving ${state.selectedVideos.length} videos...`);
 
-      const response = await fetch('/api/approved-videos/batch', {
+      const apiBaseUrl = process.env.EXPO_PUBLIC_API_URL || 'http://172.16.22.127:8081';
+      const response = await fetch(`${apiBaseUrl}/api/approved-videos/batch`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -95,7 +96,7 @@ export function useBatchOperations() {
         const retryAfter = response.headers.get('Retry-After');
         const errorData = await response.json();
         const errorMessage = errorData.message || `Too many requests. Please wait ${retryAfter} seconds`;
-        
+
         Alert.alert('Rate Limit Exceeded', errorMessage);
         if (onError) onError(errorMessage);
         return;
@@ -104,33 +105,33 @@ export function useBatchOperations() {
       if (response.ok) {
         const data = await response.json();
         const approvedCount = data.approvedCount || state.selectedVideos.length;
-        
+
         Alert.alert(
-          'Batch Approval Complete! 🎉', 
+          'Batch Approval Complete! 🎉',
           `Successfully approved ${approvedCount} video${approvedCount !== 1 ? 's' : ''}.`
         );
-        
-        setState(prev => ({ 
-          ...prev, 
+
+        setState(prev => ({
+          ...prev,
           processedCount: approvedCount,
           selectedVideos: [] // Clear selection after successful batch approval
         }));
-        
+
         if (onSuccess) onSuccess(approvedCount);
-        
+
         console.log(`✅ Batch approved ${approvedCount} videos successfully`);
       } else {
         const errorData = await response.json();
         const errorMessage = errorData.error || 'Failed to approve videos';
         console.error('❌ Batch approve error:', errorData);
-        
+
         Alert.alert('Batch Approval Failed', errorMessage);
         if (onError) onError(errorMessage);
       }
     } catch (error) {
       const errorMessage = 'Failed to approve videos. Please check your connection.';
       console.error('❌ Batch approve network error:', error);
-      
+
       Alert.alert('Network Error', errorMessage);
       if (onError) onError(errorMessage);
     } finally {

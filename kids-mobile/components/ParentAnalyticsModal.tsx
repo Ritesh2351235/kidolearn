@@ -7,22 +7,54 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
-import { Colors } from '@/constants/Colors';
+import { Colors, ThemeColors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { API_ENDPOINTS } from '@/constants/Api';
+import { useAuth } from '@clerk/clerk-expo';
+
+// Updated to match web app analytics data structure
+interface AnalyticsOverview {
+  totalActivities: number;
+  totalSessions: number;
+  totalWatchTimeSeconds: number;
+  averageCompletionRate: number;
+  uniqueVideosWatched: number;
+  totalSessionTimeSeconds: number;
+  averageSessionTimeSeconds: number;
+}
+
+interface MostWatchedVideo {
+  youtubeId: string;
+  title: string;
+  channelName: string;
+  watchCount: number;
+  totalWatchTimeSeconds: number;
+}
+
+interface DailyActivity {
+  date: string;
+  activities_count: number;
+  total_watch_time: number;
+  unique_videos: number;
+}
+
+interface Child {
+  id: string;
+  name: string;
+  birthday: string;
+}
 
 interface AnalyticsData {
-  totalWatchTime: number;
-  favoriteCategories: { category: string; count: number }[];
-  weeklyProgress: { day: string; videos: number }[];
-  childrenStats: { 
-    childId: string; 
-    childName: string; 
-    watchedVideos: number; 
-    totalTime: number; 
-    favoriteCategory: string;
-  }[];
+  overview: AnalyticsOverview;
+  mostWatchedVideos: MostWatchedVideo[];
+  dailyActivity: DailyActivity[];
+  children: Child[];
+  dateRange: {
+    startDate: string;
+    endDate: string;
+    days: number;
+  };
 }
 
 interface ParentAnalyticsModalProps {
@@ -33,15 +65,11 @@ interface ParentAnalyticsModalProps {
 export default function ParentAnalyticsModal({ visible, onClose }: ParentAnalyticsModalProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  
-  const [analyticsData, setAnalyticsData] = useState<AnalyticsData>({
-    totalWatchTime: 0,
-    favoriteCategories: [],
-    weeklyProgress: [],
-    childrenStats: []
-  });
+  const { getToken } = useAuth();
+
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedTab, setSelectedTab] = useState(0); // 0: Overview, 1: Children, 2: Categories
+  const [selectedTab, setSelectedTab] = useState(0); // 0: Overview, 1: Videos, 2: Children
 
   useEffect(() => {
     if (visible) {
@@ -52,58 +80,125 @@ export default function ParentAnalyticsModal({ visible, onClose }: ParentAnalyti
   const loadAnalyticsData = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(API_ENDPOINTS.parentAnalytics);
-      
+      console.log('🔍 Loading analytics data from web app API...');
+
+      const token = await getToken();
+      if (!token) {
+        console.log('❌ No auth token available');
+        return;
+      }
+
+      // Use the advanced analytics API from web app (7-day default)
+      const params = new URLSearchParams({
+        days: '7', // Last 7 days of data
+        // Can add childId filter if needed: childId: 'specific-child-id'
+      });
+
+      const apiBaseUrl = process.env.EXPO_PUBLIC_API_URL || 'http://172.16.22.127:8081';
+      const response = await fetch(`${apiBaseUrl}/api/parent/analytics?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('📡 Analytics API response:', response.status, response.statusText);
+
       if (response.ok) {
         const data = await response.json();
+        console.log('✅ Analytics data loaded:', {
+          totalActivities: data.overview.totalActivities,
+          totalWatchTime: Math.floor(data.overview.totalWatchTimeSeconds / 60),
+          mostWatchedVideos: data.mostWatchedVideos.length,
+          dailyActivity: data.dailyActivity.length,
+          children: data.children.length
+        });
         setAnalyticsData(data);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Analytics API error:', response.status, errorData);
+
+        // Use mock data as fallback
+        setAnalyticsData({
+          overview: {
+            totalActivities: 156,
+            totalSessions: 23,
+            totalWatchTimeSeconds: 75000, // ~20 hours
+            averageCompletionRate: 78.5,
+            uniqueVideosWatched: 42,
+            totalSessionTimeSeconds: 82800, // ~23 hours
+            averageSessionTimeSeconds: 3600 // 1 hour average
+          },
+          mostWatchedVideos: [
+            {
+              youtubeId: 'LXb3EKWsInQ',
+              title: 'Wheels On The Bus',
+              channelName: 'Super Simple Songs',
+              watchCount: 8,
+              totalWatchTimeSeconds: 1200
+            },
+            {
+              youtubeId: 'xpVfcZ0ZcFM',
+              title: 'Old MacDonald Had A Farm',
+              channelName: 'Kids TV - Nursery Rhymes',
+              watchCount: 6,
+              totalWatchTimeSeconds: 945
+            },
+            {
+              youtubeId: 'D0Ajq682yrA',
+              title: 'Twinkle Twinkle Little Star',
+              channelName: 'Cocomelon - Nursery Rhymes',
+              watchCount: 5,
+              totalWatchTimeSeconds: 825
+            }
+          ],
+          dailyActivity: [
+            { date: '2024-01-15', activities_count: 15, total_watch_time: 3600, unique_videos: 5 },
+            { date: '2024-01-16', activities_count: 22, total_watch_time: 4800, unique_videos: 7 },
+            { date: '2024-01-17', activities_count: 18, total_watch_time: 3200, unique_videos: 6 },
+            { date: '2024-01-18', activities_count: 25, total_watch_time: 5400, unique_videos: 8 },
+            { date: '2024-01-19', activities_count: 20, total_watch_time: 4200, unique_videos: 6 },
+            { date: '2024-01-20', activities_count: 28, total_watch_time: 6000, unique_videos: 9 },
+            { date: '2024-01-21', activities_count: 28, total_watch_time: 4800, unique_videos: 7 }
+          ],
+          children: [
+            { id: '1', name: 'Emma', birthday: '2017-01-15T00:00:00.000Z' },
+            { id: '2', name: 'Liam', birthday: '2019-06-20T00:00:00.000Z' }
+          ],
+          dateRange: {
+            startDate: '2024-01-15',
+            endDate: '2024-01-21',
+            days: 7
+          }
+        });
       }
     } catch (error) {
-      console.error('Error loading analytics data:', error);
-      // Mock data for demo
-      setAnalyticsData({
-        totalWatchTime: 1250,
-        favoriteCategories: [
-          { category: 'Science', count: 45 },
-          { category: 'Math', count: 32 },
-          { category: 'Reading', count: 28 },
-          { category: 'Art', count: 15 }
-        ],
-        weeklyProgress: [
-          { day: 'Mon', videos: 3 },
-          { day: 'Tue', videos: 5 },
-          { day: 'Wed', videos: 2 },
-          { day: 'Thu', videos: 4 },
-          { day: 'Fri', videos: 6 },
-          { day: 'Sat', videos: 8 },
-          { day: 'Sun', videos: 4 }
-        ],
-        childrenStats: [
-          {
-            childId: '1',
-            childName: 'Emma',
-            watchedVideos: 67,
-            totalTime: 680,
-            favoriteCategory: 'Science'
-          },
-          {
-            childId: '2',
-            childName: 'Liam',
-            watchedVideos: 53,
-            totalTime: 570,
-            favoriteCategory: 'Math'
-          }
-        ]
-      });
+      console.error('❌ Error loading analytics data:', error);
+      // Keep existing data or show error state
     } finally {
       setIsLoading(false);
     }
   };
 
-  const formatTime = (minutes: number) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+  const formatTime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return minutes > 0 ? `${minutes}m` : `${Math.floor(seconds)}s`;
+  };
+
+  const formatDuration = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getDayName = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { weekday: 'short' });
   };
 
   const TabButton = ({ title, index, icon }: { title: string; index: number; icon: string }) => (
@@ -119,10 +214,10 @@ export default function ParentAnalyticsModal({ visible, onClose }: ParentAnalyti
       onPress={() => setSelectedTab(index)}
       activeOpacity={0.7}
     >
-      <IconSymbol 
-        name={icon} 
-        size={20} 
-        color={selectedTab === index ? colors.primary : colors.textTertiary} 
+      <IconSymbol
+        name={icon}
+        size={20}
+        color={selectedTab === index ? colors.primary : colors.textTertiary}
         style={{ marginBottom: 4 }}
       />
       <Text style={{
@@ -198,223 +293,383 @@ export default function ParentAnalyticsModal({ visible, onClose }: ParentAnalyti
     </View>
   );
 
-  const renderOverviewTab = () => (
-    <ScrollView showsVerticalScrollIndicator={false}>
-      {/* Summary Stats */}
-      <View style={{ flexDirection: 'row', marginBottom: 24, marginHorizontal: -6 }}>
-        <StatCard
-          title="Total Watch Time"
-          value={formatTime(analyticsData.totalWatchTime)}
-          subtitle="This month"
-          icon="clock.fill"
-          color={colors.primary}
-        />
-        <StatCard
-          title="Videos Watched"
-          value={analyticsData.childrenStats.reduce((sum, child) => sum + child.watchedVideos, 0).toString()}
-          subtitle="Total"
-          icon="play.circle.fill"
-          color={colors.secondary}
-        />
-      </View>
+  const renderOverviewTab = () => {
+    if (!analyticsData) return null;
 
-      {/* Weekly Progress */}
-      <View style={{
-        backgroundColor: colors.cardBackground,
-        borderRadius: 16,
-        padding: 20,
-        marginBottom: 24,
-        borderWidth: 1,
-        borderColor: colors.border
-      }}>
-        <Text style={{
-          fontSize: 18,
-          fontWeight: '700',
-          color: colors.textPrimary,
-          fontFamily: 'Poppins_700Bold',
-          marginBottom: 16
-        }}>
-          Weekly Progress
-        </Text>
-        
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'end' }}>
-          {analyticsData.weeklyProgress.map((day, index) => {
-            const maxVideos = Math.max(...analyticsData.weeklyProgress.map(d => d.videos));
-            const height = (day.videos / maxVideos) * 60;
-            
-            return (
-              <View key={index} style={{ alignItems: 'center', flex: 1 }}>
-                <View style={{
-                  width: 20,
-                  height: Math.max(height, 8),
-                  backgroundColor: colors.primary,
-                  borderRadius: 4,
-                  marginBottom: 8
-                }} />
-                <Text style={{
-                  fontSize: 12,
-                  color: colors.textSecondary,
-                  fontFamily: 'Poppins_400Regular',
-                  marginBottom: 4
-                }}>
-                  {day.day}
-                </Text>
-                <Text style={{
-                  fontSize: 10,
-                  color: colors.textTertiary,
-                  fontFamily: 'Poppins_600SemiBold'
-                }}>
-                  {day.videos}
-                </Text>
-              </View>
-            );
-          })}
+    return (
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Summary Stats */}
+        <View style={{ flexDirection: 'row', marginBottom: 24, marginHorizontal: -6 }}>
+          <StatCard
+            title="Total Watch Time"
+            value={formatTime(analyticsData.overview.totalWatchTimeSeconds)}
+            subtitle={`${analyticsData.dateRange.days} days`}
+            icon="clock.fill"
+            color={ThemeColors.analytics.watchTime}
+          />
+          <StatCard
+            title="Total Activities"
+            value={analyticsData.overview.totalActivities.toString()}
+            subtitle="Video interactions"
+            icon="play.circle.fill"
+            color={ThemeColors.analytics.activity}
+          />
         </View>
-      </View>
 
-      {/* Top Categories */}
-      <View style={{
-        backgroundColor: colors.cardBackground,
-        borderRadius: 16,
-        padding: 20,
-        borderWidth: 1,
-        borderColor: colors.border
-      }}>
-        <Text style={{
-          fontSize: 18,
-          fontWeight: '700',
-          color: colors.textPrimary,
-          fontFamily: 'Poppins_700Bold',
-          marginBottom: 16
-        }}>
-          Favorite Categories
-        </Text>
-        
-        {analyticsData.favoriteCategories.slice(0, 4).map((category, index) => {
-          const maxCount = analyticsData.favoriteCategories[0]?.count || 1;
-          const width = (category.count / maxCount) * 100;
-          
-          return (
-            <View key={index} style={{ marginBottom: 12 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                <Text style={{
-                  fontSize: 14,
-                  fontWeight: '600',
-                  color: colors.textPrimary,
-                  fontFamily: 'Poppins_600SemiBold'
-                }}>
-                  {category.category}
-                </Text>
-                <Text style={{
-                  fontSize: 14,
-                  color: colors.textSecondary,
-                  fontFamily: 'Poppins_400Regular'
-                }}>
-                  {category.count}
-                </Text>
-              </View>
-              <View style={{
-                height: 6,
-                backgroundColor: colors.border,
-                borderRadius: 3,
-                overflow: 'hidden'
-              }}>
-                <View style={{
-                  width: `${width}%`,
-                  height: '100%',
-                  backgroundColor: index === 0 ? colors.primary : index === 1 ? colors.secondary : colors.blue,
-                  borderRadius: 3
-                }} />
-              </View>
-            </View>
-          );
-        })}
-      </View>
-    </ScrollView>
-  );
+        <View style={{ flexDirection: 'row', marginBottom: 24, marginHorizontal: -6 }}>
+          <StatCard
+            title="Unique Videos"
+            value={analyticsData.overview.uniqueVideosWatched.toString()}
+            subtitle="Different videos watched"
+            icon="tv.fill"
+            color={ThemeColors.analytics.progress}
+          />
+          <StatCard
+            title="Completion Rate"
+            value={`${Math.round(analyticsData.overview.averageCompletionRate)}%`}
+            subtitle="Videos completed"
+            icon="checkmark.circle.fill"
+            color={ThemeColors.analytics.completion}
+          />
+        </View>
 
-  const renderChildrenTab = () => (
-    <ScrollView showsVerticalScrollIndicator={false}>
-      {analyticsData.childrenStats.map((child, index) => (
-        <View key={child.childId} style={{
+        {/* Daily Activity Chart */}
+        <View style={{
           backgroundColor: colors.cardBackground,
           borderRadius: 16,
           padding: 20,
-          marginBottom: 16,
+          marginBottom: 24,
           borderWidth: 1,
           borderColor: colors.border
         }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-            <View style={{
-              width: 48,
-              height: 48,
-              borderRadius: 24,
-              backgroundColor: colors.primary + '30',
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginRight: 16
-            }}>
-              <IconSymbol name="person.fill" size={24} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{
-                fontSize: 18,
-                fontWeight: '700',
-                color: colors.textPrimary,
-                fontFamily: 'Poppins_700Bold'
-              }}>
-                {child.childName}
-              </Text>
-              <Text style={{
-                fontSize: 14,
-                color: colors.textSecondary,
-                fontFamily: 'Poppins_400Regular'
-              }}>
-                Favorite: {child.favoriteCategory}
-              </Text>
-            </View>
+          <Text style={{
+            fontSize: 18,
+            fontWeight: '700',
+            color: colors.textPrimary,
+            fontFamily: 'Poppins_700Bold',
+            marginBottom: 16
+          }}>
+            Daily Activity
+          </Text>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'end' }}>
+            {analyticsData.dailyActivity.map((day, index) => {
+              const maxActivities = Math.max(...analyticsData.dailyActivity.map(d => d.activities_count));
+              const height = Math.max((day.activities_count / maxActivities) * 60, 8);
+
+              return (
+                <View key={index} style={{ alignItems: 'center', flex: 1 }}>
+                  <View style={{
+                    width: 20,
+                    height: height,
+                    backgroundColor: ThemeColors.charts.primary,
+                    borderRadius: 4,
+                    marginBottom: 8
+                  }} />
+                  <Text style={{
+                    fontSize: 10,
+                    color: colors.textSecondary,
+                    fontFamily: 'Poppins_400Regular',
+                    marginBottom: 2
+                  }}>
+                    {getDayName(day.date)}
+                  </Text>
+                  <Text style={{
+                    fontSize: 9,
+                    color: colors.textTertiary,
+                    fontFamily: 'Poppins_600SemiBold'
+                  }}>
+                    {day.activities_count}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
-          
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <View style={{ alignItems: 'center', flex: 1 }}>
+
+          <Text style={{
+            fontSize: 12,
+            color: colors.textTertiary,
+            fontFamily: 'Poppins_400Regular',
+            marginTop: 8,
+            textAlign: 'center'
+          }}>
+            Total: {analyticsData.dailyActivity.reduce((sum, day) => sum + day.activities_count, 0)} activities
+          </Text>
+        </View>
+
+        {/* Session Stats */}
+        <View style={{
+          backgroundColor: colors.cardBackground,
+          borderRadius: 16,
+          padding: 20,
+          borderWidth: 1,
+          borderColor: colors.border
+        }}>
+          <Text style={{
+            fontSize: 18,
+            fontWeight: '700',
+            color: colors.textPrimary,
+            fontFamily: 'Poppins_700Bold',
+            marginBottom: 16
+          }}>
+            Session Statistics
+          </Text>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
+            <View style={{ flex: 1, alignItems: 'center' }}>
               <Text style={{
-                fontSize: 24,
+                fontSize: 20,
                 fontWeight: '800',
                 color: colors.textPrimary,
                 fontFamily: 'Poppins_800ExtraBold'
               }}>
-                {child.watchedVideos}
+                {analyticsData.overview.totalSessions}
               </Text>
               <Text style={{
                 fontSize: 12,
                 color: colors.textSecondary,
                 fontFamily: 'Poppins_400Regular'
               }}>
-                Videos Watched
+                Total Sessions
               </Text>
             </View>
-            <View style={{ alignItems: 'center', flex: 1 }}>
+            <View style={{ flex: 1, alignItems: 'center' }}>
               <Text style={{
-                fontSize: 24,
+                fontSize: 20,
                 fontWeight: '800',
                 color: colors.textPrimary,
                 fontFamily: 'Poppins_800ExtraBold'
               }}>
-                {formatTime(child.totalTime)}
+                {formatTime(analyticsData.overview.averageSessionTimeSeconds)}
               </Text>
               <Text style={{
                 fontSize: 12,
                 color: colors.textSecondary,
                 fontFamily: 'Poppins_400Regular'
               }}>
-                Watch Time
+                Avg Session
               </Text>
             </View>
           </View>
         </View>
-      ))}
-    </ScrollView>
-  );
+      </ScrollView>
+    );
+  };
+
+  const renderVideosTab = () => {
+    if (!analyticsData) return null;
+
+    return (
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <Text style={{
+          fontSize: 18,
+          fontWeight: '700',
+          color: colors.textPrimary,
+          fontFamily: 'Poppins_700Bold',
+          marginBottom: 16
+        }}>
+          Most Watched Videos
+        </Text>
+
+        {analyticsData.mostWatchedVideos.slice(0, 5).map((video, index) => (
+          <View key={video.youtubeId} style={{
+            backgroundColor: colors.cardBackground,
+            borderRadius: 16,
+            padding: 16,
+            marginBottom: 12,
+            borderWidth: 1,
+            borderColor: colors.border,
+            flexDirection: 'row',
+            alignItems: 'center'
+          }}>
+            {/* Rank */}
+            <View style={{
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+              backgroundColor: index < 3 ? ThemeColors.charts.primary : colors.textTertiary,
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginRight: 12
+            }}>
+              <Text style={{
+                fontSize: 16,
+                fontWeight: '700',
+                color: '#FFFFFF',
+                fontFamily: 'Poppins_700Bold'
+              }}>
+                {index + 1}
+              </Text>
+            </View>
+
+            {/* Video Info */}
+            <View style={{ flex: 1 }}>
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '600',
+                color: colors.textPrimary,
+                fontFamily: 'Poppins_600SemiBold',
+                marginBottom: 2
+              }} numberOfLines={2}>
+                {video.title}
+              </Text>
+              <Text style={{
+                fontSize: 12,
+                color: colors.textSecondary,
+                fontFamily: 'Poppins_400Regular',
+                marginBottom: 4
+              }}>
+                {video.channelName}
+              </Text>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{
+                  fontSize: 12,
+                  color: colors.textTertiary,
+                  fontFamily: 'Poppins_600SemiBold'
+                }}>
+                  {video.watchCount} views
+                </Text>
+                <Text style={{
+                  fontSize: 12,
+                  color: colors.textTertiary,
+                  fontFamily: 'Poppins_400Regular'
+                }}>
+                  {formatTime(video.totalWatchTimeSeconds)}
+                </Text>
+              </View>
+            </View>
+          </View>
+        ))}
+
+        {analyticsData.mostWatchedVideos.length === 0 && (
+          <View style={{
+            backgroundColor: colors.cardBackground,
+            borderRadius: 16,
+            padding: 20,
+            borderWidth: 1,
+            borderColor: colors.border,
+            alignItems: 'center'
+          }}>
+            <IconSymbol name="tv.fill" size={48} color={colors.textTertiary} />
+            <Text style={{
+              fontSize: 16,
+              color: colors.textSecondary,
+              fontFamily: 'Poppins_600SemiBold',
+              marginTop: 12
+            }}>
+              No video data yet
+            </Text>
+            <Text style={{
+              fontSize: 14,
+              color: colors.textTertiary,
+              fontFamily: 'Poppins_400Regular',
+              textAlign: 'center',
+              marginTop: 4
+            }}>
+              Start watching videos to see analytics
+            </Text>
+          </View>
+        )}
+      </ScrollView>
+    );
+  };
+
+  const renderChildrenTab = () => {
+    if (!analyticsData) return null;
+
+    return (
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {analyticsData.children.map((child, index) => {
+          // Calculate child age
+          const age = Math.floor((Date.now() - new Date(child.birthday).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+          const colors_array = ThemeColors.avatars;
+          const childColor = colors_array[index % colors_array.length];
+
+          return (
+            <View key={child.id} style={{
+              backgroundColor: colors.cardBackground,
+              borderRadius: 16,
+              padding: 20,
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: colors.border
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                <View style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: childColor + '30',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginRight: 16
+                }}>
+                  <Text style={{
+                    fontSize: 18,
+                    fontWeight: '700',
+                    color: childColor,
+                    fontFamily: 'Poppins_700Bold'
+                  }}>
+                    {child.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{
+                    fontSize: 18,
+                    fontWeight: '700',
+                    color: colors.textPrimary,
+                    fontFamily: 'Poppins_700Bold'
+                  }}>
+                    {child.name}
+                  </Text>
+                  <Text style={{
+                    fontSize: 14,
+                    color: colors.textSecondary,
+                    fontFamily: 'Poppins_400Regular'
+                  }}>
+                    {age} years old
+                  </Text>
+                </View>
+              </View>
+
+              {/* Child-specific analytics would go here */}
+              <Text style={{
+                fontSize: 14,
+                color: colors.textTertiary,
+                fontFamily: 'Poppins_400Regular',
+                textAlign: 'center',
+                fontStyle: 'italic'
+              }}>
+                Individual analytics coming soon
+              </Text>
+            </View>
+          );
+        })}
+
+        {analyticsData.children.length === 0 && (
+          <View style={{
+            backgroundColor: colors.cardBackground,
+            borderRadius: 16,
+            padding: 20,
+            borderWidth: 1,
+            borderColor: colors.border,
+            alignItems: 'center'
+          }}>
+            <IconSymbol name="person.2.fill" size={48} color={colors.textTertiary} />
+            <Text style={{
+              fontSize: 16,
+              color: colors.textSecondary,
+              fontFamily: 'Poppins_600SemiBold',
+              marginTop: 12
+            }}>
+              No children found
+            </Text>
+          </View>
+        )}
+      </ScrollView>
+    );
+  };
 
   return (
     <Modal
@@ -439,7 +694,7 @@ export default function ParentAnalyticsModal({ visible, onClose }: ParentAnalyti
           <TouchableOpacity onPress={onClose}>
             <IconSymbol name="xmark" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          
+
           <Text style={{
             fontSize: 18,
             fontWeight: '700',
@@ -448,7 +703,7 @@ export default function ParentAnalyticsModal({ visible, onClose }: ParentAnalyti
           }}>
             Analytics
           </Text>
-          
+
           <View style={{ width: 24 }} />
         </View>
 
@@ -459,12 +714,26 @@ export default function ParentAnalyticsModal({ visible, onClose }: ParentAnalyti
           borderBottomColor: colors.border
         }}>
           <TabButton title="Overview" index={0} icon="chart.bar.fill" />
-          <TabButton title="Children" index={1} icon="person.2.fill" />
+          <TabButton title="Videos" index={1} icon="tv.fill" />
+          <TabButton title="Children" index={2} icon="person.2.fill" />
         </View>
 
         {/* Content */}
         <View style={{ flex: 1, padding: 20 }}>
-          {selectedTab === 0 ? renderOverviewTab() : renderChildrenTab()}
+          {isLoading ? (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{
+                fontSize: 16,
+                color: colors.textSecondary,
+                fontFamily: 'Poppins_400Regular'
+              }}>
+                Loading analytics...
+              </Text>
+            </View>
+          ) : (
+            selectedTab === 0 ? renderOverviewTab() :
+              selectedTab === 1 ? renderVideosTab() : renderChildrenTab()
+          )}
         </View>
       </View>
     </Modal>

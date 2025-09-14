@@ -13,29 +13,22 @@ import { useAuth, useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { apiClient, Child } from '@/lib/api';
-import { calculateAge } from '@/lib/utils';
 import { useChild } from '@/contexts/ChildContext';
-import { Colors, Gradients } from '@/constants/Colors';
+import { Colors, Gradients, ThemeColors } from '@/constants/Colors';
 import { Fonts, FontSizes } from '@/constants/Fonts';
 import { LinearGradient } from 'expo-linear-gradient';
-import { IconSymbol } from '@/components/ui/IconSymbol';
-
-const AVATAR_COLORS = [
-  Colors.light.primary, Colors.light.secondary, Colors.light.blue, 
-  Colors.light.yellow, Colors.light.green, Colors.light.orange
-];
+import AddChildModal from '@/components/AddChildModal';
 
 
 export default function MainDashboard() {
   const { signOut, getToken } = useAuth();
   const { user } = useUser();
   const { setSelectedChild } = useChild();
-  
+
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [scheduleModalVisible, setScheduleModalVisible] = useState(false);
-  const [analyticsModalVisible, setAnalyticsModalVisible] = useState(false);
+  const [addChildModalVisible, setAddChildModalVisible] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -55,46 +48,30 @@ export default function MainDashboard() {
   const loadChildren = async () => {
     try {
       console.log('Loading children data from API...');
-      
-      // Try to load from API first
-      try {
-        const token = await getToken();
-        if (token) {
-          const childrenData = await apiClient.getChildren(token);
-          setChildren(childrenData);
-          console.log('✅ Loaded children from API:', childrenData.length);
-          return;
-        }
-      } catch (apiError) {
-        console.log('API not available, using mock data:', apiError);
+      const token = await getToken();
+      if (token) {
+        const childrenData = await apiClient.getChildren(token);
+        setChildren(childrenData);
+        console.log('✅ Loaded children from API:', childrenData.length);
+      } else {
+        console.error('No authentication token available');
+        router.replace('/auth');
       }
-      
-      // Fallback to mock data
-      const mockChildren: Child[] = [
-        {
-          id: '1',
-          parentId: 'mock',
-          name: 'Emma',
-          birthday: new Date(2017, 0, 15).toISOString(),
-          interests: ['animals', 'music', 'art'],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: '2',
-          parentId: 'mock',
-          name: 'Liam',
-          birthday: new Date(2019, 6, 20).toISOString(),
-          interests: ['cars', 'sports', 'science'],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }
-      ];
-      
-      setChildren(mockChildren);
-      console.log('✅ Using mock children data');
     } catch (error) {
       console.error('Error loading children:', error);
+      Alert.alert(
+        'Authentication Error',
+        'Unable to load your data. Please sign in again.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              signOut();
+              router.replace('/auth');
+            }
+          }
+        ]
+      );
     }
   };
 
@@ -110,8 +87,8 @@ export default function MainDashboard() {
       'Are you sure you want to sign out?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Sign Out', 
+        {
+          text: 'Sign Out',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -133,7 +110,18 @@ export default function MainDashboard() {
   };
 
   const addChild = () => {
-    Alert.alert('Coming Soon', 'Add child functionality will be available soon');
+    console.log('🔍 Opening Add Child modal...');
+    setAddChildModalVisible(true);
+  };
+
+  const handleChildCreated = (newChild: Child) => {
+    console.log('✅ Child created, updating children list:', newChild.name);
+
+    // Add the new child to the existing list
+    setChildren(prev => [...prev, newChild]);
+
+    // Show success message
+    console.log('🎉 Child profile created successfully for:', newChild.name);
   };
 
   const navigateToParentDashboard = () => {
@@ -146,6 +134,17 @@ export default function MainDashboard() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
+  const calculateAge = (birthday: string) => {
+    const birthDate = new Date(birthday);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
 
   if (loading) {
     return (
@@ -155,7 +154,7 @@ export default function MainDashboard() {
           style={styles.loadingContainer}
         >
           <View style={styles.loadingSpinner}>
-            <Ionicons name="people-circle" size={48} color={Colors.light.primary} />
+            <Ionicons name="people-circle" size={48} color="#8B5CF6" />
           </View>
           <Text style={styles.loadingText}>Loading dashboard...</Text>
         </LinearGradient>
@@ -175,11 +174,11 @@ export default function MainDashboard() {
         <View style={styles.header}>
           <View style={styles.headerContent}>
             <View style={styles.welcomeSection}>
-              <Text style={styles.welcomeTitle}>Welcome to Kids Land! 🎈</Text>
+              <Text style={styles.welcomeTitle}>Welcome to Kido Learn! 🎈</Text>
               <Text style={styles.userEmail}>{user?.primaryEmailAddress?.emailAddress}</Text>
             </View>
             <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-              <Ionicons name="log-out-outline" size={24} color={Colors.light.primary} />
+              <Ionicons name="log-out-outline" size={24} color="#8B5CF6" />
             </TouchableOpacity>
           </View>
         </View>
@@ -189,7 +188,7 @@ export default function MainDashboard() {
         <View style={styles.childrenSection}>
           <Text style={styles.sectionTitle}>Select Profile</Text>
           <Text style={styles.sectionSubtitle}>Choose a profile to continue</Text>
-          
+
           <View style={styles.profileGrid}>
             {/* Parent Profile Card */}
             <TouchableOpacity
@@ -198,7 +197,7 @@ export default function MainDashboard() {
               activeOpacity={0.8}
             >
               <LinearGradient
-                colors={Gradients.sunset}
+                colors={['#6366F1', '#8B5CF6']}
                 style={styles.profileGradient}
               >
                 <View style={styles.profileContent}>
@@ -211,15 +210,22 @@ export default function MainDashboard() {
                     <Ionicons name="settings" size={16} color="rgba(255,255,255,0.8)" />
                   </View>
                   <View style={styles.playButton}>
-                    <Ionicons name="chevron-forward" size={20} color={Colors.light.primary} />
+                    <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
                   </View>
                 </View>
               </LinearGradient>
             </TouchableOpacity>
 
             {children.map((child, index) => {
-              const gradientColors = [Gradients.primaryPurple, Gradients.primaryPink, Gradients.ocean][index % 3];
-              
+              const gradientColors = [
+                ['#8B5CF6', '#EC4899'],
+                ['#10B981', '#06B6D4'],
+                ['#6366F1', '#8B5CF6'],
+                ['#F59E0B', '#EF4444'],
+                ['#EF4444', '#EC4899'],
+                ['#06B6D4', '#10B981']
+              ][index % 6];
+
               return (
                 <TouchableOpacity
                   key={child.id}
@@ -241,7 +247,7 @@ export default function MainDashboard() {
                         <Ionicons name="star" size={16} color="rgba(255,255,255,0.8)" />
                       </View>
                       <View style={styles.playButton}>
-                        <Ionicons name="play" size={20} color={Colors.light.primary} />
+                        <Ionicons name="play" size={20} color="#8B5CF6" />
                       </View>
                     </View>
                   </LinearGradient>
@@ -252,7 +258,7 @@ export default function MainDashboard() {
             <TouchableOpacity style={styles.addProfileCard} onPress={addChild} activeOpacity={0.8}>
               <View style={styles.addProfileContent}>
                 <View style={styles.addAvatar}>
-                  <Ionicons name="add" size={32} color={Colors.light.primary} />
+                  <Ionicons name="add" size={32} color="#8B5CF6" />
                 </View>
                 <Text style={styles.addProfileText}>Add Child</Text>
                 <Text style={styles.addProfileSubtext}>Create new profile</Text>
@@ -262,6 +268,12 @@ export default function MainDashboard() {
         </View>
       </ScrollView>
 
+      {/* Add Child Modal */}
+      <AddChildModal
+        visible={addChildModalVisible}
+        onClose={() => setAddChildModalVisible(false)}
+        onChildCreated={handleChildCreated}
+      />
     </SafeAreaView>
   );
 }

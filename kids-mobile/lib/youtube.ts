@@ -124,15 +124,22 @@ export async function searchVideosAdvanced(
   options: SearchOptions = {}
 ): Promise<{ videos: YouTubeVideo[]; nextPageToken?: string; totalResults?: number }> {
   try {
-    const { maxResults = 20, pageToken, filters = {} } = options;
+    const { maxResults = 10, pageToken, filters = {} } = options;
     
     console.log('🔍 Advanced search for:', query, 'with filters:', filters);
     
-    // Build search query with filters
+    // Build search query with filters and add randomization for fresh content
     let searchQuery = query;
     if (filters.category && filters.category !== 'all') {
       searchQuery += ` ${getCategoryKeywords(filters.category)}`;
     }
+    
+    // Add random elements to get different results on refresh
+    const randomTerms = ['fun', 'learn', 'best', 'top', 'amazing'];
+    const randomTerm = randomTerms[Math.floor(Math.random() * randomTerms.length)];
+    searchQuery = `${randomTerm} ${searchQuery}`;
+    
+    console.log('🔀 Randomized search query:', searchQuery);
     
     const searchParams: any = {
       part: ['id', 'snippet'],
@@ -221,27 +228,53 @@ export async function getRecommendationsForChild(
   age: number, 
   options: SearchOptions = {}
 ) {
-  const queries = generateSearchQueries(interests, age);
+  const ageGroup = getAgeGroup(age);
   const allVideos: YouTubeVideo[] = [];
+  const maxResults = options.maxResults || 10;
   
-  const maxResults = options.maxResults || 50;
-  const videosPerQuery = Math.ceil(maxResults / Math.min(queries.length, 5));
+  // Create diverse queries to get variety instead of same results
+  const queries = [
+    `${interests.join(' ')} for kids ${ageGroup} educational`,
+    `learn ${interests.join(' ')} children ${ageGroup} fun`,
+    `${interests.join(' ')} tutorial kids ${ageGroup}`,
+    `best ${interests.join(' ')} for children ${ageGroup}`,
+    `${ageGroup} ${interests.join(' ')} learning videos`
+  ];
   
-  // Use more queries to get more diverse results
-  for (const query of queries.slice(0, 5)) {
-    const result = await searchVideosAdvanced(query, {
-      ...options,
-      maxResults: videosPerQuery
-    });
-    allVideos.push(...result.videos);
+  console.log('🎯 Using diverse search queries for fresh content');
+  
+  // Get fewer results from each query to create diversity
+  const resultsPerQuery = Math.ceil(maxResults / Math.min(queries.length, 3));
+  
+  // Use first 3 queries to get diverse results
+  for (let i = 0; i < Math.min(queries.length, 3); i++) {
+    const query = queries[i];
+    try {
+      const result = await searchVideosAdvanced(query, {
+        ...options,
+        maxResults: resultsPerQuery + 2 // Get a few extra to account for duplicates
+      });
+      allVideos.push(...result.videos);
+    } catch (error) {
+      console.warn(`Query failed: ${query}`, error);
+    }
   }
   
-  // Remove duplicates and limit results
+  // Remove duplicates and shuffle for freshness
   const uniqueVideos = allVideos.filter((video, index, self) => 
     index === self.findIndex(v => v.id === video.id)
   );
   
-  return uniqueVideos.slice(0, maxResults);
+  // Shuffle array to get different videos on refresh
+  const shuffledVideos = uniqueVideos.sort(() => Math.random() - 0.5);
+  
+  console.log('✨ Generated diverse results:', shuffledVideos.length, 'unique videos');
+  
+  return {
+    videos: shuffledVideos.slice(0, maxResults),
+    nextPageToken: options.pageToken || null, // Pass through pageToken for pagination
+    totalResults: Math.max(shuffledVideos.length, 100) // Estimate more results available
+  };
 }
 
 function getCategoryKeywords(category: VideoCategory): string {
