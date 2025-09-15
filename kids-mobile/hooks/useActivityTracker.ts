@@ -3,9 +3,7 @@ import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { useAuth } from '@clerk/clerk-expo';
-
-// Get the API URL from environment variables
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+import { getApiBaseUrl } from '@/lib/productionConfig';
 
 export type ActivityType = 'CLICK' | 'PLAY' | 'PAUSE' | 'RESUME' | 'SEEK' | 'COMPLETE' | 'EXIT';
 
@@ -46,46 +44,129 @@ export const useActivityTracker = () => {
   const appVersion = Constants.expoConfig?.version || '1.0.0';
   const platform = Platform.OS;
 
-  // Start a new session (simplified for mobile app)
+  // Start a new session
   const startSession = useCallback(async (childId: string) => {
     try {
-      // Generate a local session ID for tracking
+      const token = await getToken();
+      if (!token) {
+        console.error('No auth token available for session start');
+        return null;
+      }
+
+      // Generate a unique session ID
       const localSessionId = `mobile-${Date.now()}-${Math.random().toString(36).substring(7)}`;
       
-      setSessionId(localSessionId);
-      setIsTrackingSession(true);
-      console.log('✅ Mobile session started:', localSessionId);
-      return localSessionId;
+      const response = await fetch(`${getApiBaseUrl()}/api/app-sessions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'start',
+          childId,
+          sessionId: localSessionId,
+          deviceInfo,
+          appVersion,
+          platform
+        })
+      });
+
+      if (response.ok) {
+        setSessionId(localSessionId);
+        setIsTrackingSession(true);
+        console.log('✅ Session started:', localSessionId);
+        return localSessionId;
+      } else {
+        console.error('Failed to start session:', response.status);
+        return null;
+      }
     } catch (error) {
       console.error('Error starting session:', error);
+      return null;
     }
-    return null;
-  }, []);
+  }, [getToken, deviceInfo, appVersion, platform]);
 
-  // End current session (simplified for mobile app)
-  const endSession = useCallback(async () => {
+  // End current session
+  const endSession = useCallback(async (childId?: string) => {
     if (!sessionId) return;
 
     try {
-      console.log('✅ Mobile session ended:', sessionId);
+      const token = await getToken();
+      if (!token) {
+        console.error('No auth token available for session end');
+        setSessionId(null);
+        setIsTrackingSession(false);
+        return;
+      }
+
+      if (childId) {
+        const response = await fetch(`${getApiBaseUrl()}/api/app-sessions`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'end',
+            childId,
+            sessionId,
+            // TODO: Add session statistics here if needed
+          })
+        });
+
+        if (response.ok) {
+          console.log('✅ Session ended successfully:', sessionId);
+        } else {
+          console.error('Failed to end session:', response.status);
+        }
+      }
+
       setSessionId(null);
       setIsTrackingSession(false);
     } catch (error) {
       console.error('Error ending session:', error);
+      setSessionId(null);
+      setIsTrackingSession(false);
     }
   }, [sessionId, getToken]);
 
-  // Record video activity (simplified for mobile app)
+  // Record video activity to database
   const recordActivity = useCallback(async (activityData: VideoActivityData) => {
     try {
-      // For now, just log the activity locally
-      console.log('📊 Activity recorded:', {
+      const token = await getToken();
+      if (!token) {
+        console.error('No auth token available for recording activity');
+        return null;
+      }
+
+      const payload = {
         ...activityData,
         sessionId: sessionId || undefined,
         deviceInfo,
         appVersion,
+      };
+
+      console.log('📊 Recording activity to database:', payload);
+
+      const response = await fetch(`${getApiBaseUrl()}/api/video-activities`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
       });
-      return { success: true };
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Activity recorded successfully:', result.activityId);
+        return { success: true, activityId: result.activityId };
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to record activity:', response.status, errorData);
+        return null;
+      }
     } catch (error) {
       console.error('Error recording activity:', error);
       return null;

@@ -216,6 +216,12 @@ export default function ParentDashboard() {
     }
   }, [selectedChildId, activeTab]);
 
+  useEffect(() => {
+    if (selectedChildId) {
+      loadScheduledVideos();
+    }
+  }, [selectedChildId]);
+
   const loadParentData = async () => {
     try {
       console.log('📈 Loading parent dashboard data...');
@@ -273,17 +279,24 @@ export default function ParentDashboard() {
     try {
       const token = await getToken();
       if (token) {
-        const response = await fetch(`${getApiBaseUrl()}/api/parent/analytics?days=7`, {
+        // Use Next.js backend analytics API
+        const analyticsUrl = `${getApiBaseUrl()}/api/parent/analytics`;
+        console.log('📊 Loading analytics from Next.js backend:', analyticsUrl);
+        
+        const response = await fetch(analyticsUrl, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
         });
 
+        console.log('📊 Analytics response status:', response.status);
+        
         if (response.ok) {
           let analyticsData: any = {};
           try {
             analyticsData = await response.json();
+            console.log('📊 Raw analytics data received:', analyticsData);
           } catch (parseError) {
             console.log('⚠️ Could not parse analytics response as JSON:', parseError);
             throw new Error('Invalid analytics response format');
@@ -588,7 +601,12 @@ export default function ParentDashboard() {
         return;
       }
 
-      const response = await fetch(`${getApiBaseUrl()}/api/scheduled-videos`, {
+      // Only load scheduled videos for the selected child
+      const url = selectedChildId 
+        ? `${getApiBaseUrl()}/api/scheduled-videos?childId=${selectedChildId}`
+        : `${getApiBaseUrl()}/api/scheduled-videos`;
+
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,

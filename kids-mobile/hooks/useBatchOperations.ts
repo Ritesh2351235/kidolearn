@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Alert } from 'react-native';
+import { getApiBaseUrl } from '@/lib/productionConfig';
 
 export interface BatchableVideo {
   id: string;
@@ -72,8 +73,7 @@ export function useBatchOperations() {
     try {
       console.log(`📦 Batch approving ${state.selectedVideos.length} videos...`);
 
-      const apiBaseUrl = process.env.EXPO_PUBLIC_API_URL || 'http://172.16.22.127:8081';
-      const response = await fetch(`${apiBaseUrl}/api/approved-videos/batch`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/approved-videos/batch`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

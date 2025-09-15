@@ -4,6 +4,7 @@
  */
 
 import { networkManager } from './networkManager';
+import { getApiBaseUrl } from './productionConfig';
 
 export interface ApprovedVideo {
   id: string;
@@ -28,8 +29,8 @@ class SimpleApiClient {
   private apiBaseUrl: string;
 
   constructor() {
-    // Get API base URL from environment or use fallback
-    this.apiBaseUrl = process.env.EXPO_PUBLIC_API_URL || 'http://172.16.22.127:8081';
+    // Get API base URL from production config
+    this.apiBaseUrl = getApiBaseUrl();
     console.log('🌐 SimpleApiClient using:', this.apiBaseUrl);
   }
 

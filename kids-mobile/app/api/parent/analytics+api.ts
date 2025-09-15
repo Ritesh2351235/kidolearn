@@ -127,46 +127,137 @@ export async function GET(request: ExpoRequest): Promise<Response> {
           totalWatchTime
         });
 
+        // Get real analytics data from VideoActivity and AppSession tables
+        const childIds = parent.children.map(child => child.id);
+        
+        // Get date range (last 7 days)
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 7);
+
+        // Query VideoActivity for real analytics
+        const videoActivities = await db.videoActivity.findMany({
+          where: {
+            childId: { in: childIds },
+            createdAt: {
+              gte: startDate,
+              lte: endDate
+            }
+          },
+          include: {
+            child: true
+          }
+        });
+
+        // Query AppSession for session data
+        const appSessions = await db.appSession.findMany({
+          where: {
+            childId: { in: childIds },
+            startTime: {
+              gte: startDate,
+              lte: endDate
+            }
+          }
+        });
+
+        // Calculate real analytics
+        const totalActivities = videoActivities.length;
+        const totalSessions = appSessions.length;
+        const totalWatchTimeSeconds = videoActivities.reduce((sum, activity) => sum + (activity.watchTimeSeconds || 0), 0);
+        const uniqueVideos = new Set(videoActivities.map(activity => activity.youtubeId)).size;
+        const completionRates = videoActivities.filter(activity => activity.completionRate !== null).map(activity => activity.completionRate);
+        const averageCompletionRate = completionRates.length > 0 ? completionRates.reduce((sum, rate) => sum + rate, 0) / completionRates.length : 0;
+        const totalSessionTimeSeconds = appSessions.reduce((sum, session) => sum + (session.duration || 0), 0);
+
+        // Most watched videos
+        const videoStats = videoActivities.reduce((acc, activity) => {
+          const key = activity.youtubeId;
+          if (!acc[key]) {
+            acc[key] = {
+              youtubeId: activity.youtubeId,
+              title: activity.videoTitle || 'Unknown',
+              channelName: activity.channelName || 'Unknown',
+              watchCount: 0,
+              totalWatchTimeSeconds: 0
+            };
+          }
+          acc[key].watchCount++;
+          acc[key].totalWatchTimeSeconds += activity.watchTimeSeconds || 0;
+          return acc;
+        }, {} as Record<string, any>);
+
+        const mostWatchedVideos = Object.values(videoStats)
+          .sort((a: any, b: any) => b.watchCount - a.watchCount)
+          .slice(0, 5);
+
+        // Top channels
+        const channelStats = videoActivities.reduce((acc, activity) => {
+          const channel = activity.channelName || 'Unknown';
+          if (!acc[channel]) {
+            acc[channel] = { name: channel, watchCount: 0, totalWatchTimeSeconds: 0 };
+          }
+          acc[channel].watchCount++;
+          acc[channel].totalWatchTimeSeconds += activity.watchTimeSeconds || 0;
+          return acc;
+        }, {} as Record<string, any>);
+
+        const topChannels = Object.values(channelStats)
+          .sort((a: any, b: any) => b.watchCount - a.watchCount)
+          .slice(0, 5);
+
+        // Daily activity
+        const dailyStats = videoActivities.reduce((acc, activity) => {
+          const date = activity.createdAt.toISOString().split('T')[0];
+          if (!acc[date]) {
+            acc[date] = { date, activities_count: 0, total_watch_time: 0, unique_videos: new Set() };
+          }
+          acc[date].activities_count++;
+          acc[date].total_watch_time += activity.watchTimeSeconds || 0;
+          acc[date].unique_videos.add(activity.youtubeId);
+          return acc;
+        }, {} as Record<string, any>);
+
+        const dailyActivity = Object.values(dailyStats).map((day: any) => ({
+          date: day.date,
+          activities_count: day.activities_count,
+          total_watch_time: day.total_watch_time,
+          unique_videos: day.unique_videos.size
+        }));
+
+        // Activity breakdown
+        const activityBreakdown = videoActivities.reduce((acc, activity) => {
+          const type = activity.activityType;
+          const existing = acc.find(item => item.type === type);
+          if (existing) {
+            existing.count++;
+          } else {
+            acc.push({ type, count: 1 });
+          }
+          return acc;
+        }, [] as any[]);
+
         return Response.json({
           overview: {
-            totalActivities: parent.children.reduce((sum, child) => sum + child.activities.length, 0),
-            totalSessions: Math.ceil(totalWatchTime / 30), // Estimate sessions
-            totalWatchTimeSeconds: totalWatchTime * 60, // Convert back to seconds
-            averageCompletionRate: watchRate / 100,
-            uniqueVideosWatched: totalWatchedVideos,
-            totalSessionTimeSeconds: totalWatchTime * 60,
-            averageSessionTimeSeconds: totalWatchTime * 60 / Math.max(totalChildren, 1)
+            totalActivities,
+            totalSessions,
+            totalWatchTimeSeconds,
+            averageCompletionRate,
+            uniqueVideosWatched: uniqueVideos,
+            totalSessionTimeSeconds,
+            averageSessionTimeSeconds: totalSessions > 0 ? totalSessionTimeSeconds / totalSessions : 0
           },
-          mostWatchedVideos: parent.children
-            .flatMap(child => child.videos.filter(v => v.watched))
-            .slice(0, 5)
-            .map(video => ({
-              youtubeId: video.youtubeId || 'unknown',
-              title: video.title,
-              channelName: video.channelName || 'Unknown',
-              watchCount: 1,
-              totalWatchTimeSeconds: 300 // Default 5 minutes
-            })),
-          topChannels: [],
-          dailyActivity: weeklyProgress.map((day, index) => ({
-            date: new Date(Date.now() - (6 - index) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            activities_count: day.videos,
-            total_watch_time: day.videos * 300,
-            unique_videos: day.videos
-          })),
-          activityBreakdown: [
-            { type: 'PLAY', count: totalWatchedVideos },
-            { type: 'COMPLETE', count: Math.floor(totalWatchedVideos * 0.8) },
-            { type: 'EXIT', count: Math.floor(totalWatchedVideos * 0.2) }
-          ],
+          mostWatchedVideos,
+          topChannels,
+          dailyActivity,
+          activityBreakdown,
           children: parent.children.map(child => ({
             id: child.id,
             name: child.name,
             birthday: child.birthday.toISOString()
           })),
           dateRange: {
-            startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-            endDate: new Date().toISOString(),
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
             days: 7
           }
         });

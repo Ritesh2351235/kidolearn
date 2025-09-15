@@ -12,6 +12,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { API_ENDPOINTS } from '@/constants/Api';
 import { useAuth } from '@clerk/clerk-expo';
+import { getApiBaseUrl } from '@/lib/productionConfig';
 
 // Updated to match web app analytics data structure
 interface AnalyticsOverview {
@@ -94,8 +95,7 @@ export default function ParentAnalyticsModal({ visible, onClose }: ParentAnalyti
         // Can add childId filter if needed: childId: 'specific-child-id'
       });
 
-      const apiBaseUrl = process.env.EXPO_PUBLIC_API_URL || 'http://172.16.22.127:8081';
-      const response = await fetch(`${apiBaseUrl}/api/parent/analytics?${params.toString()}`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/parent/analytics?${params.toString()}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,

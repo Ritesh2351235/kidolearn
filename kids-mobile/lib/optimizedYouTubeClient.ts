@@ -4,6 +4,7 @@
  */
 
 import { quotaManager } from './youtubeQuotaManager';
+import { getApiBaseUrl } from './productionConfig';
 
 export interface OptimizedYouTubeVideo {
   id: string;
@@ -57,7 +58,7 @@ class OptimizedYouTubeClient {
   private apiBaseUrl: string;
 
   constructor() {
-    this.apiBaseUrl = process.env.EXPO_PUBLIC_API_URL || 'http://172.16.22.127:8081';
+    this.apiBaseUrl = getApiBaseUrl();
   }
 
   /**

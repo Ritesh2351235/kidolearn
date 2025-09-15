@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, ThemeColors } from '@/constants/Colors';
 import { useAuth } from '@clerk/clerk-expo';
+import { getApiBaseUrl } from '@/lib/productionConfig';
 
 interface QuotaStatus {
   user: {
@@ -59,8 +60,7 @@ export default function QuotaStatusIndicator({ onQuotaUpdate }: QuotaStatusIndic
       const token = await getToken();
       if (!token) return;
 
-      const apiBaseUrl = process.env.EXPO_PUBLIC_API_URL || 'http://172.16.22.127:8081';
-      const response = await fetch(`${apiBaseUrl}/api/quota-status`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/quota-status`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',

@@ -8,6 +8,7 @@ import {
   ScrollView,
   Alert,
   RefreshControl,
+  AppState,
 } from 'react-native';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,12 +19,14 @@ import { Colors, Gradients, ThemeColors } from '@/constants/Colors';
 import { Fonts, FontSizes } from '@/constants/Fonts';
 import { LinearGradient } from 'expo-linear-gradient';
 import AddChildModal from '@/components/AddChildModal';
+import { useActivityTracker } from '@/hooks/useActivityTracker';
 
 
 export default function MainDashboard() {
   const { signOut, getToken } = useAuth();
   const { user } = useUser();
   const { setSelectedChild } = useChild();
+  const activityTracker = useActivityTracker();
 
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,8 +107,18 @@ export default function MainDashboard() {
     );
   };
 
-  const selectChild = (child: Child) => {
+  const selectChild = async (child: Child) => {
     setSelectedChild(child);
+    
+    // Start tracking session for this child
+    try {
+      await activityTracker.startSession(child.id);
+      console.log('📱 Started session for child:', child.name);
+    } catch (error) {
+      console.error('Failed to start session:', error);
+      // Don't block navigation if session tracking fails
+    }
+    
     router.replace('/(tabs)');
   };
 
