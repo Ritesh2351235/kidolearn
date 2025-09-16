@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,14 +8,13 @@ import {
   ScrollView,
   Alert,
   RefreshControl,
-  AppState,
 } from 'react-native';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { apiClient, Child } from '@/lib/api';
 import { useChild } from '@/contexts/ChildContext';
-import { Colors, Gradients, ThemeColors } from '@/constants/Colors';
+import { Colors } from '@/constants/Colors';
 import { Fonts, FontSizes } from '@/constants/Fonts';
 import { LinearGradient } from 'expo-linear-gradient';
 import AddChildModal from '@/components/AddChildModal';
@@ -35,7 +34,7 @@ export default function MainDashboard() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadData = async () => {
     try {
@@ -48,7 +47,7 @@ export default function MainDashboard() {
     }
   };
 
-  const loadChildren = async () => {
+  const loadChildren = useCallback(async () => {
     try {
       console.log('Loading children data from API...');
       const token = await getToken();
@@ -76,7 +75,7 @@ export default function MainDashboard() {
         ]
       );
     }
-  };
+  }, [getToken, signOut]);
 
 
   const onRefresh = () => {

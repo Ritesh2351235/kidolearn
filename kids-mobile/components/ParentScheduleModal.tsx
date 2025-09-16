@@ -10,7 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+// Light mode only - removed useColorScheme
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { apiClient } from '@/lib/api';
 import { getApiBaseUrl } from '@/lib/productionConfig';
@@ -40,8 +40,8 @@ interface ParentScheduleModalProps {
 }
 
 export default function ParentScheduleModal({ visible, onClose, onSchedule }: ParentScheduleModalProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  // Force light mode only
+  const colors = Colors.light;
   const { getToken } = useAuth();
   
   const [step, setStep] = useState(1); // 1: Select Videos, 2: Select Children, 3: Select Date

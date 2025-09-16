@@ -7,6 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  Alert,
 } from 'react-native';
 import { useChild } from '@/contexts/ChildContext';
 import { useAuth } from '@clerk/clerk-expo';
@@ -121,16 +122,16 @@ export default function HomeScreen() {
     fetchVideos();
 
     // Start activity tracking session when child is selected
-    if (selectedChild?.id && !activityTracker.isTrackingSession) {
+    if (selectedChild?.id && !activityTracker.isSessionActive) {
       console.log('🎯 Starting activity tracking session for:', selectedChild.name);
-      activityTracker.startSession(selectedChild.id);
+      activityTracker.startSession(selectedChild.id, selectedChild.name);
     }
   }, [selectedChild?.id]); // Only depend on child ID to prevent function recreation loops
 
   // End session when component unmounts or child changes
   useEffect(() => {
     return () => {
-      if (activityTracker.isTrackingSession) {
+      if (activityTracker.isSessionActive) {
         activityTracker.endSession();
       }
     };
@@ -274,7 +275,7 @@ export default function HomeScreen() {
           style={styles.welcomeSection}
         >
           <View style={styles.welcomeContent}>
-            <Text style={styles.welcomeTitle}>Let's learn together with KidoLearn!</Text>
+            <Text style={styles.welcomeTitle}>Let&apos;s learn together with KidoLearn!</Text>
             <Text style={styles.welcomeSubtitle}>Registration successful!</Text>
             <View style={styles.successBadge}>
               <Ionicons name="checkmark-circle" size={20} color={Colors.light.success} />
@@ -302,7 +303,7 @@ export default function HomeScreen() {
             </View>
             <Text style={styles.emptyTitle}>No videos scheduled for today!</Text>
             <Text style={styles.emptySubtext}>
-              Your parent hasn't scheduled any videos for today. Check back tomorrow or ask them to schedule some videos for you!
+              Your parent hasn&apos;t scheduled any videos for today. Check back tomorrow or ask them to schedule some videos for you!
             </Text>
           </View>
         ) : (
@@ -311,11 +312,11 @@ export default function HomeScreen() {
 
             {/* Video Grid */}
             <View style={styles.videosSection}>
-              <Text style={styles.sectionTitle}>Today's Scheduled Videos</Text>
+              <Text style={styles.sectionTitle}>Today&apos;s Scheduled Videos</Text>
               <View style={styles.videoGrid}>
                 {videos.map((video, index) => {
                   // Cycle through different gradient colors for cards
-                  const gradients = [['#8B5CF6', '#EC4899'], ['#A855F7', '#EC4899'], ['#8B5CF6', '#3B82F6'], ['#F59E0B', '#EF4444']];
+                  const gradients = [['#8B5CF6', '#EC4899'], ['#A855F7', '#EC4899'], ['#8B5CF6', '#3B82F6'], ['#F59E0B', '#EF4444']] as const;
                   const cardGradient = gradients[index % gradients.length];
 
                   return (

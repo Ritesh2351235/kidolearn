@@ -37,8 +37,8 @@ export const useActivityTracker = () => {
   const lastPositionRef = useRef<number>(0);
   const watchStartTimeRef = useRef<number | null>(null);
 
-  // Get authentication token from Clerk
-  const { getToken } = useAuth();
+  // Get authentication token and user ID from Clerk
+  const { getToken, userId } = useAuth();
 
   // Use shared session context
   const { sessionId, isSessionActive, startSession, endSession, getSessionId } = useSession();
@@ -65,14 +65,14 @@ export const useActivityTracker = () => {
 
       console.log('📊 Recording activity to local storage:', payload);
 
-      const savedActivity = await localActivityStorage.saveActivity(payload);
+      const savedActivity = await localActivityStorage.saveActivity(payload, userId || undefined);
       console.log('✅ Activity recorded successfully:', savedActivity.id);
       return { success: true, activityId: savedActivity.id };
     } catch (error) {
       console.error('Error recording activity:', error);
       return null;
     }
-  }, [deviceInfo, appVersion, getSessionId]);
+  }, [deviceInfo, appVersion, getSessionId, userId]);
 
   // Track video click
   const trackVideoClick = useCallback(async (

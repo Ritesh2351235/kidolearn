@@ -7,13 +7,13 @@ import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+// Light mode only - removed useColorScheme
 import { useChild } from '@/contexts/ChildContext';
 
 export default function TabLayout() {
   const { isSignedIn } = useAuth();
   const { selectedChild } = useChild();
-  const colorScheme = useColorScheme();
+  // Force light mode only
 
   if (!isSignedIn) {
     return <Redirect href="/auth" />;

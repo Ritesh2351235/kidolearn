@@ -15,7 +15,7 @@ import {
   Modal
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth, useClerk } from '@clerk/clerk-expo';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,7 +26,7 @@ import { apiClient } from '@/lib/api';
 import { getApiBaseUrl } from '@/lib/productionConfig';
 import { Colors, Gradients, ThemeColors } from '@/constants/Colors';
 import { Fonts, FontSizes } from '@/constants/Fonts';
-import { getAgeGroupInfo, getCategoryIcon } from '@/lib/growth-categories';
+import { getAgeGroupInfo } from '@/lib/growth-categories';
 import FilterModal from '@/components/FilterModal';
 import { localActivityStorage } from '@/lib/localActivityStorage';
 
@@ -45,15 +45,15 @@ interface ParentStats {
   totalWatchedVideos: number;
   watchRate: number;
   totalWatchTime: number;
-  favoriteCategories: Array<{ category: string; count: number }>;
-  weeklyProgress: Array<{ day: string; videos: number }>;
-  childrenStats: Array<{
+  favoriteCategories: { category: string; count: number }[];
+  weeklyProgress: { day: string; videos: number }[];
+  childrenStats: {
     childId: string;
     childName: string;
     watchedVideos: number;
     totalTime: number;
     favoriteCategory: string;
-  }>;
+  }[];
 }
 
 interface ApprovedVideo {
@@ -111,7 +111,8 @@ enum TabType {
 }
 
 export default function ParentDashboard() {
-  const { getToken } = useAuth();
+  const { getToken, userId } = useAuth();
+  const { signOut } = useClerk();
 
 
   const [activeTab, setActiveTab] = useState<TabType>(TabType.OVERVIEW);
@@ -248,7 +249,11 @@ export default function ParentDashboard() {
           [
             {
               text: 'OK',
-              onPress: () => {
+              onPress: async () => {
+                // Clear user-specific local storage data before signing out
+                if (userId) {
+                  await localActivityStorage.clearUserData(userId);
+                }
                 signOut();
                 router.replace('/auth');
               }
@@ -280,10 +285,11 @@ export default function ParentDashboard() {
     try {
       console.log('📊 Loading analytics: mix of local storage and API data');
       
-      // Get local storage data for watch stats
+      // Get local storage data for watch stats (user-specific)
       const localAnalyticsData = await localActivityStorage.getAnalyticsSummary(
         selectedChildId || undefined, // Filter by selected child if any
-        7 // Last 7 days
+        7, // Last 7 days
+        userId || undefined // User-specific data
       );
       
       console.log('📊 Local analytics data:', localAnalyticsData);
@@ -332,7 +338,7 @@ export default function ParentDashboard() {
         })),
         childrenStats: children.map((child: any) => {
           // Get approved videos for this specific child from API
-          const childApprovedVideos = apiData?.approvedVideos?.filter((v: any) => v.child.id === child.id) || [];
+          // const childApprovedVideos = apiData?.approvedVideos?.filter((v: any) => v.child.id === child.id) || [];
           const childWatchedVideos = Math.floor(localAnalyticsData.uniqueVideosWatched / Math.max(children.length, 1));
           
           return {

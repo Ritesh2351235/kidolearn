@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useAuth } from '@clerk/clerk-expo';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
@@ -22,7 +22,7 @@ interface SessionProviderProps {
 export function SessionProvider({ children }: SessionProviderProps) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isSessionActive, setIsSessionActive] = useState(false);
-  const { getToken } = useAuth();
+  const { userId } = useAuth();
 
   // Device and app information
   const deviceInfo = `${Device.brand || 'Unknown'} ${Device.modelName || 'Device'} - ${Platform.OS} ${Platform.Version}`;
@@ -34,7 +34,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
       // Generate a unique session ID
       const newSessionId = `mobile-${Date.now()}-${Math.random().toString(36).substring(7)}`;
       
-      // Save session to local storage
+      // Save session to local storage with user ID
       await localActivityStorage.saveSession({
         childId,
         childName,
@@ -46,7 +46,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
         deviceInfo,
         appVersion,
         platform
-      });
+      }, userId || undefined);
 
       setSessionId(newSessionId);
       setIsSessionActive(true);
@@ -58,14 +58,14 @@ export function SessionProvider({ children }: SessionProviderProps) {
     }
   };
 
-  const endSession = async (childId?: string, childName?: string): Promise<void> => {
+  const endSession = useCallback(async (childId?: string, childName?: string): Promise<void> => {
     if (!sessionId) return;
 
     try {
       if (childId) {
         // Update session with end time and duration
         const endTime = new Date().toISOString();
-        const sessions = await localActivityStorage.getSessions();
+        const sessions = await localActivityStorage.getSessions(undefined, userId || undefined);
         const currentSession = sessions.find(s => s.sessionId === sessionId);
         
         if (currentSession) {
@@ -75,7 +75,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
           await localActivityStorage.updateSession(sessionId, {
             endTime,
             duration
-          });
+          }, userId || undefined);
           
           console.log('✅ Global session ended in local storage:', sessionId);
         }
@@ -88,7 +88,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
       setSessionId(null);
       setIsSessionActive(false);
     }
-  };
+  }, [sessionId, userId]);
 
   const getSessionId = (): string | null => {
     return sessionId;
@@ -102,7 +102,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
         endSession().catch(console.error);
       }
     };
-  }, [isSessionActive, sessionId]);
+  }, [isSessionActive, sessionId, endSession]);
 
   const value: SessionContextType = {
     sessionId,

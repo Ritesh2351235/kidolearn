@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Image, Linking } from 'react-native';
-import { useOAuth } from '@clerk/clerk-expo';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Image, TextInput, Alert } from 'react-native';
+import { useOAuth, useSignUp } from '@clerk/clerk-expo';
 import { useWarmUpBrowser } from '@/hooks/useWarmUpBrowser';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -14,8 +14,19 @@ WebBrowser.maybeCompleteAuthSession();
 export default function AuthScreen() {
   useWarmUpBrowser();
   const [showFAQ, setShowFAQ] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  
+  // Sign Up form states
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
+  const { signUp, setActive, isLoaded } = useSignUp();
 
   const handleSignIn = React.useCallback(async () => {
     try {
@@ -55,17 +66,366 @@ export default function AuthScreen() {
     }
   }, [startOAuthFlow]);
 
-  const handleParentSignUp = async () => {
-    try {
-      await Linking.openURL('https://riteshhiremath.com');
-    } catch (err) {
-      console.error('Failed to open URL', err);
-    }
-  };
-
   const toggleFAQ = () => {
     setShowFAQ(!showFAQ);
   };
+
+  const handleSignUp = async () => {
+    if (!isLoaded) return;
+    
+    setIsLoading(true);
+    setError('');
+
+    try {
+      await signUp.create({
+        emailAddress: email,
+        password,
+      });
+
+      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      setIsVerifying(true);
+    } catch (err: any) {
+      console.error('Sign up error:', err);
+      
+      let errorMessage = 'An error occurred during sign up.';
+      if (err?.errors && err.errors.length > 0) {
+        const error = err.errors[0];
+        if (error.code === 'form_password_pwned') {
+          errorMessage = 'This password has been found in a data breach. Please choose a different password.';
+        } else if (error.code === 'form_password_length_too_short') {
+          errorMessage = 'Password must be at least 8 characters long.';
+        } else if (error.code === 'form_identifier_exists') {
+          errorMessage = 'An account with this email already exists. Please sign in instead.';
+        } else if (error.code === 'form_password_validation_failed') {
+          errorMessage = 'Password must contain at least 8 characters.';
+        } else if (error.longMessage) {
+          errorMessage = error.longMessage;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+      }
+      
+      setError(errorMessage);
+    }
+
+    setIsLoading(false);
+  };
+
+  const handleVerification = async () => {
+    if (!isLoaded) return;
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const completeSignUp = await signUp.attemptEmailAddressVerification({ 
+        code: verificationCode 
+      });
+
+      if (completeSignUp.status === 'complete') {
+        await setActive({ session: completeSignUp.createdSessionId });
+        
+        // Wait for session to be established
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        router.replace('/main-dashboard');
+      } else {
+        setError('Verification failed. Please try again.');
+      }
+    } catch (err: any) {
+      console.error('Verification error:', err);
+      
+      let errorMessage = 'Verification failed. Please try again.';
+      if (err?.errors && err.errors.length > 0) {
+        const error = err.errors[0];
+        if (error.code === 'form_code_incorrect') {
+          errorMessage = 'The verification code is incorrect. Please try again.';
+        } else if (error.code === 'verification_expired') {
+          errorMessage = 'The verification code has expired. Please request a new one.';
+        } else if (error.longMessage) {
+          errorMessage = error.longMessage;
+        }
+      }
+      
+      setError(errorMessage);
+    }
+
+    setIsLoading(false);
+  };
+
+  const handleGoogleSignUp = async () => {
+    if (!isLoaded) return;
+
+    try {
+      console.log('Starting Google OAuth flow for sign up...');
+      const { createdSessionId, signIn, signUp, setActive } = await startOAuthFlow();
+
+      if (createdSessionId) {
+        console.log('OAuth successful, setting active session...');
+        await setActive!({ session: createdSessionId });
+
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        router.replace('/main-dashboard');
+      } else if (signUp) {
+        console.log('Sign-up available, proceeding...');
+        await setActive!({ session: signUp.createdSessionId });
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        router.replace('/main-dashboard');
+      } else if (signIn) {
+        console.log('Sign-in available, proceeding...');
+        await setActive!({ session: signIn.createdSessionId });
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        router.replace('/main-dashboard');
+      }
+    } catch (err) {
+      console.error('OAuth error during sign-up:', err);
+      Alert.alert('Authentication failed', 'Please try again.');
+    }
+  };
+
+  const resetSignUpForm = () => {
+    setIsSignUp(false);
+    setIsVerifying(false);
+    setEmail('');
+    setPassword('');
+    setVerificationCode('');
+    setError('');
+    setShowPassword(false);
+  };
+
+  // Email Verification Screen
+  if (isVerifying) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <LinearGradient
+          colors={['#FFFFFF', '#F8FAFC']}
+          style={styles.mainContainer}
+        >
+          <ScrollView contentContainerStyle={styles.content}>
+            {/* Header */}
+            <View style={styles.heroSection}>
+              <TouchableOpacity 
+                style={styles.backButton} 
+                onPress={resetSignUpForm}
+              >
+                <Ionicons name="arrow-back" size={24} color={Colors.light.primary} />
+              </TouchableOpacity>
+              
+              <View style={styles.logoContainer}>
+                <Image
+                  source={require('../assets/app-images/illustrator.png')}
+                  style={styles.heroImage}
+                  resizeMode="contain"
+                />
+              </View>
+              <Text style={styles.title}>Check your email 📧</Text>
+              <Text style={styles.subtitle}>
+                We sent a verification code to {email}
+              </Text>
+            </View>
+
+            {/* Verification Form */}
+            <View style={styles.authSection}>
+              <View style={styles.verificationCard}>
+                <Text style={styles.sectionTitle}>Verify Email</Text>
+                <Text style={styles.verificationSubtitle}>
+                  Enter the 6-digit code we sent to your email
+                </Text>
+
+                {error ? (
+                  <View style={styles.errorContainer}>
+                    <Ionicons name="alert-circle" size={20} color={Colors.light.error} />
+                    <Text style={styles.errorText}>{error}</Text>
+                  </View>
+                ) : null}
+
+                <View style={styles.inputContainer}>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="shield-checkmark" size={20} color={Colors.light.primary} style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.verificationInput}
+                      placeholder="Enter 6-digit code"
+                      value={verificationCode}
+                      onChangeText={setVerificationCode}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      textAlign="center"
+                      editable={!isLoading}
+                    />
+                  </View>
+                </View>
+
+                <TouchableOpacity 
+                  style={[styles.primaryButton, (!verificationCode || verificationCode.length !== 6 || isLoading) && styles.buttonDisabled]} 
+                  onPress={handleVerification}
+                  disabled={!verificationCode || verificationCode.length !== 6 || isLoading}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={Gradients.primaryPurple as any}
+                    style={styles.buttonGradient}
+                  >
+                    <Text style={styles.primaryButtonText}>
+                      {isLoading ? 'Verifying...' : 'Verify Email'}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <View style={styles.resendContainer}>
+                  <Text style={styles.resendText}>Didn&apos;t receive the code? </Text>
+                  <TouchableOpacity 
+                    onPress={() => signUp?.prepareEmailAddressVerification({ strategy: 'email_code' })}
+                    disabled={isLoading}
+                  >
+                    <Text style={styles.resendButton}>Resend</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </ScrollView>
+        </LinearGradient>
+      </SafeAreaView>
+    );
+  }
+
+  // Sign Up Screen
+  if (isSignUp) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <LinearGradient
+          colors={['#FFFFFF', '#F8FAFC']}
+          style={styles.mainContainer}
+        >
+          <ScrollView contentContainerStyle={styles.content}>
+            {/* Header */}
+            <View style={styles.heroSection}>
+              <TouchableOpacity 
+                style={styles.backButton} 
+                onPress={resetSignUpForm}
+              >
+                <Ionicons name="arrow-back" size={24} color={Colors.light.primary} />
+              </TouchableOpacity>
+              
+              <View style={styles.logoContainer}>
+                <Image
+                  source={require('../assets/app-images/illustrator.png')}
+                  style={styles.heroImage}
+                  resizeMode="contain"
+                />
+              </View>
+              <Text style={styles.title}>Create your account 🎈</Text>
+              <Text style={styles.subtitle}>Join thousands of families on their learning journey</Text>
+            </View>
+
+            {/* Sign Up Options */}
+            <View style={styles.authSection}>
+              <Text style={styles.sectionTitle}>Sign Up</Text>
+
+              {/* Google Sign Up */}
+              <TouchableOpacity style={styles.signInCard} onPress={handleGoogleSignUp} activeOpacity={0.9}>
+                <LinearGradient
+                  colors={Gradients.primaryPurple as any}
+                  style={styles.authCardGradient}
+                >
+                  <View style={styles.authCardContent}>
+                    <View style={styles.authIcon}>
+                      <Ionicons name="logo-google" size={32} color="rgba(255,255,255,0.9)" />
+                    </View>
+                    <Text style={styles.authCardTitle}>Continue with Google</Text>
+                    <Text style={styles.authCardSubtitle}>Quick and secure signup with your Google account</Text>
+                    <View style={styles.playButtonAuth}>
+                      <Ionicons name="arrow-forward" size={20} color={Colors.light.primary} />
+                    </View>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              {/* Divider */}
+              <View style={styles.dividerContainer}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or continue with email</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              {error ? (
+                <View style={styles.errorContainer}>
+                  <Ionicons name="alert-circle" size={20} color={Colors.light.error} />
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              ) : null}
+
+              {/* Email Sign Up Form */}
+              <View style={styles.formContainer}>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Email address</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="mail" size={20} color={Colors.light.primary} style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="john.doe@example.com"
+                      value={email}
+                      onChangeText={setEmail}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      editable={!isLoading}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Password</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="lock-closed" size={20} color={Colors.light.primary} style={styles.inputIcon} />
+                    <TextInput
+                      style={[styles.textInput, { paddingRight: 50 }]}
+                      placeholder="Create a strong password"
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry={!showPassword}
+                      editable={!isLoading}
+                    />
+                    <TouchableOpacity 
+                      style={styles.passwordToggle}
+                      onPress={() => setShowPassword(!showPassword)}
+                    >
+                      <Ionicons 
+                        name={showPassword ? "eye-off" : "eye"} 
+                        size={20} 
+                        color={Colors.light.textSecondary} 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.passwordHint}>At least 8 characters</Text>
+                </View>
+
+                <TouchableOpacity 
+                  style={[styles.primaryButton, (!email || !password || password.length < 8 || isLoading) && styles.buttonDisabled]} 
+                  onPress={handleSignUp}
+                  disabled={!email || !password || password.length < 8 || isLoading}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={Gradients.primaryPurple as any}
+                    style={styles.buttonGradient}
+                  >
+                    <Text style={styles.primaryButtonText}>
+                      {isLoading ? 'Creating account...' : 'Create Account'}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <View style={styles.switchAuthContainer}>
+                  <Text style={styles.switchAuthText}>Already have an account? </Text>
+                  <TouchableOpacity onPress={resetSignUpForm}>
+                    <Text style={styles.switchAuthButton}>Sign in</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </ScrollView>
+        </LinearGradient>
+      </SafeAreaView>
+    );
+  }
 
   if (showFAQ) {
     return (
@@ -173,6 +533,25 @@ export default function AuthScreen() {
               </LinearGradient>
             </TouchableOpacity>
 
+            {/* Sign Up Option */}
+            <TouchableOpacity style={styles.signUpCard} onPress={() => setIsSignUp(true)} activeOpacity={0.9}>
+              <LinearGradient
+                colors={['#10B981', '#059669'] as any}
+                style={styles.authCardGradient}
+              >
+                <View style={styles.authCardContent}>
+                  <View style={styles.authIcon}>
+                    <Ionicons name="person-add" size={32} color="rgba(255,255,255,0.9)" />
+                  </View>
+                  <Text style={styles.authCardTitle}>Create New Account</Text>
+                  <Text style={styles.authCardSubtitle}>New to Kido Learn? Join thousands of families on their learning journey</Text>
+                  <View style={styles.playButtonAuth}>
+                    <Ionicons name="arrow-forward" size={20} color={Colors.light.primary} />
+                  </View>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+
             {/* Info Card */}
             <View style={styles.infoCard}>
               <View style={styles.infoContent}>
@@ -269,6 +648,16 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   signInCard: {
+    marginBottom: 20,
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  signUpCard: {
     marginBottom: 20,
     borderRadius: 20,
     overflow: 'hidden',
@@ -470,5 +859,162 @@ const styles = StyleSheet.create({
   bold: {
     fontFamily: Fonts.content.bold,
     color: Colors.light.textPrimary,
+  },
+
+  // New Signup Styles
+  verificationCard: {
+    backgroundColor: Colors.light.cardBackground,
+    borderRadius: 20,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  verificationSubtitle: {
+    fontSize: FontSizes.base,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
+    marginBottom: 24,
+    fontFamily: Fonts.content.regular,
+  },
+  verificationInput: {
+    flex: 1,
+    fontSize: FontSizes.xl,
+    color: Colors.light.textPrimary,
+    fontFamily: Fonts.content.semibold,
+    letterSpacing: 4,
+    paddingLeft: 40,
+  },
+  resendContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 16,
+  },
+  resendText: {
+    fontSize: FontSizes.sm,
+    color: Colors.light.textSecondary,
+    fontFamily: Fonts.content.regular,
+  },
+  resendButton: {
+    fontSize: FontSizes.sm,
+    color: Colors.light.primary,
+    fontFamily: Fonts.content.semibold,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.light.border,
+  },
+  dividerText: {
+    fontSize: FontSizes.sm,
+    color: Colors.light.textSecondary,
+    fontFamily: Fonts.content.regular,
+    paddingHorizontal: 16,
+  },
+  formContainer: {
+    marginTop: 8,
+  },
+  inputContainer: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: FontSizes.sm,
+    color: Colors.light.textPrimary,
+    fontFamily: Fonts.content.semibold,
+    marginBottom: 8,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.light.backgroundSecondary,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  textInput: {
+    flex: 1,
+    fontSize: FontSizes.base,
+    color: Colors.light.textPrimary,
+    fontFamily: Fonts.content.regular,
+    paddingVertical: 12,
+  },
+  passwordToggle: {
+    padding: 8,
+  },
+  passwordHint: {
+    fontSize: FontSizes.xs,
+    color: Colors.light.textSecondary,
+    fontFamily: Fonts.content.regular,
+    marginTop: 4,
+  },
+  primaryButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  buttonGradient: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  primaryButtonText: {
+    fontSize: FontSizes.base,
+    color: Colors.light.textOnColor,
+    fontFamily: Fonts.content.bold,
+  },
+  switchAuthContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  switchAuthText: {
+    fontSize: FontSizes.sm,
+    color: Colors.light.textSecondary,
+    fontFamily: Fonts.content.regular,
+  },
+  switchAuthButton: {
+    fontSize: FontSizes.sm,
+    color: Colors.light.primary,
+    fontFamily: Fonts.content.semibold,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.2)',
+  },
+  errorText: {
+    flex: 1,
+    fontSize: FontSizes.sm,
+    color: Colors.light.error,
+    fontFamily: Fonts.content.regular,
+    marginLeft: 8,
   },
 });

@@ -8,7 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { Colors, ThemeColors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+// Light mode only - removed useColorScheme
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { API_ENDPOINTS } from '@/constants/Api';
 import { useAuth } from '@clerk/clerk-expo';
@@ -64,8 +64,8 @@ interface ParentAnalyticsModalProps {
 }
 
 export default function ParentAnalyticsModal({ visible, onClose }: ParentAnalyticsModalProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  // Force light mode only
+  const colors = Colors.light;
   const { getToken } = useAuth();
 
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);

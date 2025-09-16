@@ -48,10 +48,20 @@ const STORAGE_KEYS = {
   ANALYTICS: '@kids_app_analytics'
 };
 
+// Generate user-specific storage keys
+const getUserSpecificKeys = (userId?: string) => {
+  const userPrefix = userId ? `_${userId}` : '';
+  return {
+    ACTIVITIES: `${STORAGE_KEYS.ACTIVITIES}${userPrefix}`,
+    SESSIONS: `${STORAGE_KEYS.SESSIONS}${userPrefix}`,
+    ANALYTICS: `${STORAGE_KEYS.ANALYTICS}${userPrefix}`
+  };
+};
+
 class LocalActivityStorage {
   
   // Video Activities
-  async saveActivity(activity: Omit<VideoActivity, 'id' | 'createdAt'>): Promise<VideoActivity> {
+  async saveActivity(activity: Omit<VideoActivity, 'id' | 'createdAt'>, userId?: string): Promise<VideoActivity> {
     try {
       const newActivity: VideoActivity = {
         ...activity,
@@ -59,10 +69,11 @@ class LocalActivityStorage {
         createdAt: new Date().toISOString()
       };
 
-      const existingActivities = await this.getActivities();
+      const existingActivities = await this.getActivities(undefined, userId);
       const updatedActivities = [...existingActivities, newActivity];
       
-      await AsyncStorage.setItem(STORAGE_KEYS.ACTIVITIES, JSON.stringify(updatedActivities));
+      const keys = getUserSpecificKeys(userId);
+      await AsyncStorage.setItem(keys.ACTIVITIES, JSON.stringify(updatedActivities));
       console.log('✅ Activity saved to local storage:', newActivity.activityType, newActivity.videoTitle);
       
       return newActivity;
@@ -72,9 +83,10 @@ class LocalActivityStorage {
     }
   }
 
-  async getActivities(childId?: string): Promise<VideoActivity[]> {
+  async getActivities(childId?: string, userId?: string): Promise<VideoActivity[]> {
     try {
-      const activitiesJson = await AsyncStorage.getItem(STORAGE_KEYS.ACTIVITIES);
+      const keys = getUserSpecificKeys(userId);
+      const activitiesJson = await AsyncStorage.getItem(keys.ACTIVITIES);
       const activities: VideoActivity[] = activitiesJson ? JSON.parse(activitiesJson) : [];
       
       if (childId) {
@@ -88,9 +100,10 @@ class LocalActivityStorage {
     }
   }
 
-  async clearActivities(): Promise<void> {
+  async clearActivities(userId?: string): Promise<void> {
     try {
-      await AsyncStorage.removeItem(STORAGE_KEYS.ACTIVITIES);
+      const keys = getUserSpecificKeys(userId);
+      await AsyncStorage.removeItem(keys.ACTIVITIES);
       console.log('✅ Activities cleared from local storage');
     } catch (error) {
       console.error('❌ Error clearing activities:', error);
@@ -98,17 +111,18 @@ class LocalActivityStorage {
   }
 
   // App Sessions
-  async saveSession(session: Omit<AppSession, 'id'>): Promise<AppSession> {
+  async saveSession(session: Omit<AppSession, 'id'>, userId?: string): Promise<AppSession> {
     try {
       const newSession: AppSession = {
         ...session,
         id: `session_${Date.now()}_${Math.random().toString(36).substring(7)}`
       };
 
-      const existingSessions = await this.getSessions();
+      const existingSessions = await this.getSessions(undefined, userId);
       const updatedSessions = [...existingSessions, newSession];
       
-      await AsyncStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(updatedSessions));
+      const keys = getUserSpecificKeys(userId);
+      await AsyncStorage.setItem(keys.SESSIONS, JSON.stringify(updatedSessions));
       console.log('✅ Session saved to local storage:', newSession.sessionId);
       
       return newSession;
@@ -118,9 +132,9 @@ class LocalActivityStorage {
     }
   }
 
-  async updateSession(sessionId: string, updates: Partial<AppSession>): Promise<AppSession | null> {
+  async updateSession(sessionId: string, updates: Partial<AppSession>, userId?: string): Promise<AppSession | null> {
     try {
-      const sessions = await this.getSessions();
+      const sessions = await this.getSessions(undefined, userId);
       const sessionIndex = sessions.findIndex(s => s.sessionId === sessionId);
       
       if (sessionIndex === -1) {
@@ -129,7 +143,8 @@ class LocalActivityStorage {
       }
 
       sessions[sessionIndex] = { ...sessions[sessionIndex], ...updates };
-      await AsyncStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(sessions));
+      const keys = getUserSpecificKeys(userId);
+      await AsyncStorage.setItem(keys.SESSIONS, JSON.stringify(sessions));
       
       console.log('✅ Session updated in local storage:', sessionId);
       return sessions[sessionIndex];
@@ -139,9 +154,10 @@ class LocalActivityStorage {
     }
   }
 
-  async getSessions(childId?: string): Promise<AppSession[]> {
+  async getSessions(childId?: string, userId?: string): Promise<AppSession[]> {
     try {
-      const sessionsJson = await AsyncStorage.getItem(STORAGE_KEYS.SESSIONS);
+      const keys = getUserSpecificKeys(userId);
+      const sessionsJson = await AsyncStorage.getItem(keys.SESSIONS);
       const sessions: AppSession[] = sessionsJson ? JSON.parse(sessionsJson) : [];
       
       if (childId) {
@@ -155,9 +171,10 @@ class LocalActivityStorage {
     }
   }
 
-  async clearSessions(): Promise<void> {
+  async clearSessions(userId?: string): Promise<void> {
     try {
-      await AsyncStorage.removeItem(STORAGE_KEYS.SESSIONS);
+      const keys = getUserSpecificKeys(userId);
+      await AsyncStorage.removeItem(keys.SESSIONS);
       console.log('✅ Sessions cleared from local storage');
     } catch (error) {
       console.error('❌ Error clearing sessions:', error);
@@ -165,10 +182,10 @@ class LocalActivityStorage {
   }
 
   // Analytics
-  async getAnalyticsData(childId?: string, days: number = 7): Promise<AnalyticsData> {
+  async getAnalyticsData(childId?: string, days: number = 7, userId?: string): Promise<AnalyticsData> {
     try {
-      const activities = await this.getActivities(childId);
-      const sessions = await this.getSessions(childId);
+      const activities = await this.getActivities(childId, userId);
+      const sessions = await this.getSessions(childId, userId);
       
       // Filter by date range (last N days)
       const cutoffDate = new Date();
@@ -197,7 +214,7 @@ class LocalActivityStorage {
     }
   }
 
-  async getAnalyticsSummary(childId?: string, days: number = 7): Promise<{
+  async getAnalyticsSummary(childId?: string, days: number = 7, userId?: string): Promise<{
     totalActivities: number;
     totalSessions: number;
     totalWatchTimeSeconds: number;
@@ -229,7 +246,7 @@ class LocalActivityStorage {
     }>;
   }> {
     try {
-      const data = await this.getAnalyticsData(childId, days);
+      const data = await this.getAnalyticsData(childId, days, userId);
       
       const totalActivities = data.activities.length;
       const totalSessions = data.sessions.length;
@@ -380,20 +397,21 @@ class LocalActivityStorage {
   }
 
   // Utility methods
-  async clearAllData(): Promise<void> {
+  async clearAllData(userId?: string): Promise<void> {
     try {
-      await this.clearActivities();
-      await this.clearSessions();
+      await this.clearActivities(userId);
+      await this.clearSessions(userId);
       console.log('✅ All activity data cleared from local storage');
     } catch (error) {
       console.error('❌ Error clearing all data:', error);
     }
   }
 
-  async getStorageSize(): Promise<{ activities: number; sessions: number; total: number }> {
+  async getStorageSize(userId?: string): Promise<{ activities: number; sessions: number; total: number }> {
     try {
-      const activitiesJson = await AsyncStorage.getItem(STORAGE_KEYS.ACTIVITIES) || '[]';
-      const sessionsJson = await AsyncStorage.getItem(STORAGE_KEYS.SESSIONS) || '[]';
+      const keys = getUserSpecificKeys(userId);
+      const activitiesJson = await AsyncStorage.getItem(keys.ACTIVITIES) || '[]';
+      const sessionsJson = await AsyncStorage.getItem(keys.SESSIONS) || '[]';
       
       return {
         activities: activitiesJson.length,
@@ -403,6 +421,35 @@ class LocalActivityStorage {
     } catch (error) {
       console.error('❌ Error getting storage size:', error);
       return { activities: 0, sessions: 0, total: 0 };
+    }
+  }
+
+  // Clear data for specific user when they log out
+  async clearUserData(userId: string): Promise<void> {
+    try {
+      await this.clearAllData(userId);
+      console.log('✅ User-specific data cleared:', userId);
+    } catch (error) {
+      console.error('❌ Error clearing user data:', error);
+    }
+  }
+
+  // Clear all storage data (for debugging or reset)
+  async clearAllStorage(): Promise<void> {
+    try {
+      const allKeys = await AsyncStorage.getAllKeys();
+      const kidsAppKeys = allKeys.filter(key => 
+        key.startsWith('@kids_app_activities') || 
+        key.startsWith('@kids_app_sessions') || 
+        key.startsWith('@kids_app_analytics')
+      );
+      
+      if (kidsAppKeys.length > 0) {
+        await AsyncStorage.multiRemove(kidsAppKeys);
+        console.log('✅ All kids app storage cleared');
+      }
+    } catch (error) {
+      console.error('❌ Error clearing all storage:', error);
     }
   }
 }

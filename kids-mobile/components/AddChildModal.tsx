@@ -14,7 +14,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { Fonts, FontSizes } from '@/constants/Fonts';
-import { useColorScheme } from '@/hooks/useColorScheme';
+// Light mode only - removed useColorScheme
 import { useAuth } from '@clerk/clerk-expo';
 import { getApiBaseUrl } from '@/lib/productionConfig';
 
@@ -32,8 +32,8 @@ const INTEREST_OPTIONS = [
 ];
 
 export default function AddChildModal({ visible, onClose, onChildCreated }: AddChildModalProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  // Force light mode only
+  const colors = Colors.light;
   const { getToken } = useAuth();
 
   // Form state

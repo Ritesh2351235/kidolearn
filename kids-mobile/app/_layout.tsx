@@ -20,7 +20,7 @@ import {
   Nunito_800ExtraBold,
 } from '@expo-google-fonts/nunito';
 
-import { useColorScheme } from '@/hooks/useColorScheme';
+// Light mode only - removed useColorScheme
 import { ChildProvider } from '@/contexts/ChildContext';
 import { SessionProvider } from '@/contexts/SessionContext';
 
@@ -58,7 +58,7 @@ if (!publishableKey) {
 }
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  // Force light mode only
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     Poppins_400Regular,
@@ -79,11 +79,15 @@ export default function RootLayout() {
   }
 
   return (
-    <ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
+    <ClerkProvider 
+      tokenCache={tokenCache} 
+      publishableKey={publishableKey}
+      telemetry={false}
+    >
       <ClerkLoaded>
         <SessionProvider>
           <ChildProvider>
-            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <ThemeProvider value={DefaultTheme}>
               <Stack>
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen name="auth" options={{ headerShown: false }} />
