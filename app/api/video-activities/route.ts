@@ -53,18 +53,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Child not found or unauthorized' }, { status: 404 });
     }
 
-    // If approvedVideoId is provided, verify it exists and belongs to this child
+    // Handle scheduled videos vs approved videos
+    let finalApprovedVideoId = null;
+    
     if (approvedVideoId) {
-      const approvedVideo = await db.approvedVideo.findFirst({
-        where: {
-          id: approvedVideoId,
-          childId: childId
-        }
-      });
+      // Check if this is a scheduled video ID (starts with "scheduled-")
+      if (approvedVideoId.startsWith('scheduled-')) {
+        console.log('📅 This is a scheduled video, not linking to approved video');
+        finalApprovedVideoId = null; // Don't link to approved video table for scheduled videos
+      } else {
+        // Verify the approved video exists and belongs to this child
+        const approvedVideo = await db.approvedVideo.findFirst({
+          where: {
+            id: approvedVideoId,
+            childId: childId
+          }
+        });
 
-      if (!approvedVideo) {
-        console.log('⚠️ Approved video not found, proceeding without link');
-        // Don't fail the request, just proceed without the approved video link
+        if (approvedVideo) {
+          finalApprovedVideoId = approvedVideoId;
+        } else {
+          console.log('⚠️ Approved video not found, proceeding without link');
+          finalApprovedVideoId = null;
+        }
       }
     }
 
@@ -72,7 +83,7 @@ export async function POST(request: NextRequest) {
     const videoActivity = await db.videoActivity.create({
       data: {
         childId,
-        approvedVideoId: approvedVideoId || undefined,
+        approvedVideoId: finalApprovedVideoId,
         youtubeId,
         activityType: activityType as any, // ActivityType enum
         watchTimeSeconds: Math.max(0, watchTimeSeconds || 0),
@@ -90,11 +101,11 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Video activity recorded:', videoActivity.id);
 
-    // If this is a completion activity, mark the approved video as watched
-    if (activityType === 'COMPLETE' && approvedVideoId) {
+    // If this is a completion activity, mark the approved video as watched (only for actual approved videos)
+    if (activityType === 'COMPLETE' && finalApprovedVideoId) {
       try {
         await db.approvedVideo.update({
-          where: { id: approvedVideoId },
+          where: { id: finalApprovedVideoId },
           data: { 
             watched: true,
             watchedAt: new Date()

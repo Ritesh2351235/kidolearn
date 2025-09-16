@@ -12,6 +12,7 @@ import {
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import { useActivityTracker } from '@/hooks/useActivityTracker';
+import { useChild } from '@/contexts/ChildContext';
 import { Colors } from '@/constants/Colors';
 
 interface YouTubePlayerProps {
@@ -41,6 +42,7 @@ export default function YouTubePlayer({
   const [hasStartedPlaying, setHasStartedPlaying] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
+  const { selectedChild } = useChild();
   const activityTracker = useActivityTracker();
   const playStartTimeRef = useRef<number | null>(null);
   const videoStartedRef = useRef(false);
@@ -50,10 +52,11 @@ export default function YouTubePlayer({
 
   const handleClose = async () => {
     // Track video exit if user closes before completion
-    if (childId && videoStartedRef.current) {
+    if (childId && selectedChild && videoStartedRef.current) {
       try {
         await activityTracker.trackVideoExit(
           childId,
+          selectedChild.name,
           youtubeId,
           title,
           channelName,
@@ -80,7 +83,7 @@ export default function YouTubePlayer({
     setIsLoading(false);
 
     // Track video play when the video loads and starts (since autoplay=1)
-    if (childId && !videoStartedRef.current) {
+    if (childId && selectedChild && !videoStartedRef.current) {
       videoStartedRef.current = true;
       setHasStartedPlaying(true);
       playStartTimeRef.current = Date.now();
@@ -88,6 +91,7 @@ export default function YouTubePlayer({
       try {
         await activityTracker.trackVideoPlay(
           childId,
+          selectedChild.name,
           youtubeId,
           title,
           channelName,

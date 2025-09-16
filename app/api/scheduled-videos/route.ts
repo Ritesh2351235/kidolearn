@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const { userId } = await auth();
     
@@ -12,6 +12,13 @@ export async function GET() {
         { status: 401 }
       );
     }
+
+    // Get query parameters
+    const { searchParams } = new URL(request.url);
+    const childId = searchParams.get('childId');
+    const date = searchParams.get('date');
+
+    console.log('📅 Scheduled videos API called with:', { childId, date });
 
     // Get the parent
     const parent = await db.parent.findUnique({
@@ -25,14 +32,48 @@ export async function GET() {
       );
     }
 
-    // Get all scheduled videos for this parent's children
-    const scheduledVideos = await db.scheduledVideo.findMany({
-      where: {
-        child: {
+    // Build where clause
+    const whereClause: any = {
+      child: {
+        parentId: parent.id,
+      },
+      isActive: true,
+    };
+
+    // Filter by specific child if provided
+    if (childId) {
+      // Verify the child belongs to this parent
+      const child = await db.child.findFirst({
+        where: {
+          id: childId,
           parentId: parent.id,
         },
-        isActive: true,
-      },
+      });
+
+      if (!child) {
+        return NextResponse.json(
+          { error: "Child not found or unauthorized" },
+          { status: 404 }
+        );
+      }
+
+      whereClause.childId = childId;
+      console.log('📅 Filtering scheduled videos for child:', child.name);
+    }
+
+    // Filter by date if provided
+    if (date) {
+      const targetDate = new Date(date);
+      whereClause.scheduledDate = {
+        gte: new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate()),
+        lt: new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate() + 1),
+      };
+      console.log('📅 Filtering scheduled videos for date:', date);
+    }
+
+    // Get scheduled videos with filters
+    const scheduledVideos = await db.scheduledVideo.findMany({
+      where: whereClause,
       include: {
         child: {
           select: {
@@ -72,6 +113,8 @@ export async function GET() {
       isWatched: schedule.isWatched,
       carriedOver: schedule.carriedOver,
     }));
+
+    console.log(`📅 Returning ${transformedVideos.length} scheduled videos${childId ? ` for child ${childId}` : ' for all children'}`);
 
     return NextResponse.json({
       scheduledVideos: transformedVideos,

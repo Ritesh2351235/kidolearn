@@ -28,6 +28,7 @@ import { Colors, Gradients, ThemeColors } from '@/constants/Colors';
 import { Fonts, FontSizes } from '@/constants/Fonts';
 import { getAgeGroupInfo, getCategoryIcon } from '@/lib/growth-categories';
 import FilterModal from '@/components/FilterModal';
+import { localActivityStorage } from '@/lib/localActivityStorage';
 
 const { width } = Dimensions.get('window');
 
@@ -277,64 +278,78 @@ export default function ParentDashboard() {
 
   const loadAnalytics = async () => {
     try {
-      const token = await getToken();
-      if (token) {
-        // Use Next.js backend analytics API
-        const analyticsUrl = `${getApiBaseUrl()}/api/parent/analytics`;
-        console.log('📊 Loading analytics from Next.js backend:', analyticsUrl);
-        
-        const response = await fetch(analyticsUrl, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
+      console.log('📊 Loading analytics: mix of local storage and API data');
+      
+      // Get local storage data for watch stats
+      const localAnalyticsData = await localActivityStorage.getAnalyticsSummary(
+        selectedChildId || undefined, // Filter by selected child if any
+        7 // Last 7 days
+      );
+      
+      console.log('📊 Local analytics data:', localAnalyticsData);
 
-        console.log('📊 Analytics response status:', response.status);
-        
-        if (response.ok) {
-          let analyticsData: any = {};
-          try {
-            analyticsData = await response.json();
-            console.log('📊 Raw analytics data received:', analyticsData);
-          } catch (parseError) {
-            console.log('⚠️ Could not parse analytics response as JSON:', parseError);
-            throw new Error('Invalid analytics response format');
+      // Get API data for approved videos count
+      let apiData = null;
+      try {
+        const token = await getToken();
+        if (token) {
+          const response = await fetch(`${getApiBaseUrl()}/api/approved-videos`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (response.ok) {
+            apiData = await response.json();
+            console.log('📊 API data received:', apiData);
           }
-          
-          // Transform new API format to match existing UI expectations
-          const transformedStats = {
-            totalChildren: analyticsData.children?.length || children.length,
-            totalApprovedVideos: analyticsData.overview?.uniqueVideosWatched || 0,
-            totalWatchedVideos: analyticsData.overview?.uniqueVideosWatched || 0,
-            watchRate: Math.round((analyticsData.overview?.averageCompletionRate || 0) * 100),
-            totalWatchTime: Math.round((analyticsData.overview?.totalWatchTimeSeconds || 0) / 60),
-            favoriteCategories: analyticsData.topChannels?.slice(0, 5).map(channel => ({
-              category: channel.name,
-              count: channel.watchCount
-            })) || [],
-            weeklyProgress: analyticsData.dailyActivity?.map((day, index) => ({
-              day: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][new Date(day.date).getDay()],
-              videos: day.activities_count
-            })) || [],
-            childrenStats: analyticsData.children?.map(child => ({
-              childId: child.id,
-              childName: child.name,
-              watchedVideos: 0, // Will be calculated from activities
-              totalTime: 0, // Will be calculated from activities
-              favoriteCategory: 'General'
-            })) || []
-          };
-          
-          setStats(transformedStats);
-          console.log('✅ Loaded analytics from API', transformedStats);
-        } else {
-          throw new Error('Analytics API failed');
         }
+      } catch (apiError) {
+        console.log('⚠️ API error, using fallback:', apiError);
       }
+
+      // Combine local storage data (watched/rate) with API data (approved videos)
+      const totalApprovedVideos = apiData?.approvedVideos?.length || 0;
+      const watchedVideosFromLocal = localAnalyticsData.uniqueVideosWatched;
+      const watchRate = totalApprovedVideos > 0 
+        ? Math.round((watchedVideosFromLocal / totalApprovedVideos) * 100)
+        : Math.round(localAnalyticsData.averageCompletionRate);
+
+      const transformedStats = {
+        totalChildren: children.length,
+        totalApprovedVideos: totalApprovedVideos, // From API
+        totalWatchedVideos: watchedVideosFromLocal, // From local storage
+        watchRate: watchRate, // Calculated from both
+        totalWatchTime: Math.round(localAnalyticsData.totalWatchTimeSeconds / 60), // From local storage
+        favoriteCategories: localAnalyticsData.topChannels.slice(0, 5).map((channel: any) => ({
+          category: channel.name,
+          count: channel.watchCount
+        })),
+        weeklyProgress: localAnalyticsData.dailyActivity.map((day: any) => ({
+          day: new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' }),
+          videos: day.activities_count
+        })),
+        childrenStats: children.map((child: any) => {
+          // Get approved videos for this specific child from API
+          const childApprovedVideos = apiData?.approvedVideos?.filter((v: any) => v.child.id === child.id) || [];
+          const childWatchedVideos = Math.floor(localAnalyticsData.uniqueVideosWatched / Math.max(children.length, 1));
+          
+          return {
+            childId: child.id,
+            childName: child.name,
+            watchedVideos: childWatchedVideos, // From local storage
+            totalTime: Math.floor(localAnalyticsData.totalWatchTimeSeconds / 60 / Math.max(children.length, 1)), // From local storage
+            favoriteCategory: localAnalyticsData.topChannels[0]?.name || 'General'
+          };
+        })
+      };
+      
+      setStats(transformedStats);
+      console.log('✅ Loaded mixed analytics data', transformedStats);
     } catch (analyticsError) {
-      console.log('⚠️ Analytics API error:', analyticsError);
-      // Set empty but valid stats instead of mock data
+      console.log('⚠️ Analytics error:', analyticsError);
+      // Set empty but valid stats
       setStats({
         totalChildren: children.length,
         totalApprovedVideos: 0,
@@ -346,7 +361,7 @@ export default function ParentDashboard() {
           day: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i],
           videos: 0
         })),
-        childrenStats: children.map(child => ({
+        childrenStats: children.map((child: any) => ({
           childId: child.id,
           childName: child.name,
           watchedVideos: 0,

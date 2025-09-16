@@ -148,6 +148,7 @@ export default function HomeScreen() {
         try {
           await activityTracker.trackVideoClick(
             selectedChild.id,
+            selectedChild.name,
             video.youtubeId,
             video.title,
             video.channelName,

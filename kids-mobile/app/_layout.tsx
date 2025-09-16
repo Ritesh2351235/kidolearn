@@ -22,6 +22,7 @@ import {
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { ChildProvider } from '@/contexts/ChildContext';
+import { SessionProvider } from '@/contexts/SessionContext';
 
 const tokenCache = {
   async getToken(key: string) {
@@ -80,18 +81,20 @@ export default function RootLayout() {
   return (
     <ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
       <ClerkLoaded>
-        <ChildProvider>
-          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="auth" options={{ headerShown: false }} />
-              <Stack.Screen name="main-dashboard" options={{ headerShown: false }} />
-              <Stack.Screen name="parent-dashboard" options={{ headerShown: false }} />
-              <Stack.Screen name="+not-found" />
-            </Stack>
-            <StatusBar style="auto" />
-          </ThemeProvider>
-        </ChildProvider>
+        <SessionProvider>
+          <ChildProvider>
+            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <Stack>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="auth" options={{ headerShown: false }} />
+                <Stack.Screen name="main-dashboard" options={{ headerShown: false }} />
+                <Stack.Screen name="parent-dashboard" options={{ headerShown: false }} />
+                <Stack.Screen name="+not-found" />
+              </Stack>
+              <StatusBar style="auto" />
+            </ThemeProvider>
+          </ChildProvider>
+        </SessionProvider>
       </ClerkLoaded>
     </ClerkProvider>
   );

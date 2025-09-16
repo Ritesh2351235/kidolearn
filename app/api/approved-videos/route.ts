@@ -120,3 +120,66 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const parent = await getCurrentParent();
+    
+    if (!parent) {
+      return NextResponse.json({ error: 'Parent not found' }, { status: 404 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const videoId = searchParams.get('videoId');
+
+    if (!videoId) {
+      return NextResponse.json({ 
+        error: 'Missing videoId parameter' 
+      }, { status: 400 });
+    }
+
+    console.log('🗑️ Attempting to delete approved video:', videoId);
+
+    // First, verify the video belongs to this parent's children
+    const approvedVideo = await db.approvedVideo.findFirst({
+      where: {
+        id: videoId,
+        child: {
+          parentId: parent.id,
+        },
+      },
+      include: {
+        child: true,
+      },
+    });
+
+    if (!approvedVideo) {
+      return NextResponse.json({ 
+        error: 'Video not found or unauthorized' 
+      }, { status: 404 });
+    }
+
+    // Delete the approved video
+    await db.approvedVideo.delete({
+      where: { id: videoId },
+    });
+
+    console.log('✅ Successfully deleted approved video:', videoId);
+
+    return NextResponse.json({ 
+      success: true,
+      message: 'Video removed successfully'
+    });
+  } catch (error) {
+    console.error('❌ Error deleting approved video:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete video' },
+      { status: 500 }
+    );
+  }
+}

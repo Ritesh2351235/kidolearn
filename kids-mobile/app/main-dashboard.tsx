@@ -19,14 +19,14 @@ import { Colors, Gradients, ThemeColors } from '@/constants/Colors';
 import { Fonts, FontSizes } from '@/constants/Fonts';
 import { LinearGradient } from 'expo-linear-gradient';
 import AddChildModal from '@/components/AddChildModal';
-import { useActivityTracker } from '@/hooks/useActivityTracker';
+import { useSession } from '@/contexts/SessionContext';
 
 
 export default function MainDashboard() {
   const { signOut, getToken } = useAuth();
   const { user } = useUser();
   const { setSelectedChild } = useChild();
-  const activityTracker = useActivityTracker();
+  const { startSession } = useSession();
 
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,7 +112,7 @@ export default function MainDashboard() {
     
     // Start tracking session for this child
     try {
-      await activityTracker.startSession(child.id);
+      await startSession(child.id, child.name);
       console.log('📱 Started session for child:', child.name);
     } catch (error) {
       console.error('Failed to start session:', error);
